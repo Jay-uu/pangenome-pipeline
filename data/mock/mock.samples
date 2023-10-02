@@ -1,0 +1,4 @@
+mock1	mock.500k.S1_R1.fastq.gz	pair1
+mock1	mock.500k.S1_R2.fastq.gz	pair2
+mock2	mock.500k.S2_R1.fastq.gz	pair1
+mock2	mock.500k.S2_R2.fastq.gz	pair2
