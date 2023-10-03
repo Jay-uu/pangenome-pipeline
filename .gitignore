@@ -1,0 +1,6 @@
+#ignore test results and work directories
+test_*/
+
+#Ignore any hidden nextflow files
+.nextflow/
+.nextflow*

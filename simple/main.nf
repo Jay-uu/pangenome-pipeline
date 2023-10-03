@@ -73,14 +73,13 @@ subsample_fastqs(single_samps.subsample, fastq_chan.subsample.first())
 To create mOTUs, all the bins need to be gathered into one process run, and all the checkm files need to be gathered
 into one and provided to the same process.
 */
-//all_checkm = fastq_to_bins.out.checkm.collectFile(name: "all.checkM", newLine: true) //concatenating checkm-files
-//all_checkm.multiMap { file -> to_mOTUlizer: to_mOTU_dirs: file }.set { all_checkm }
-fastq_to_bins.out.checkm.collectFile(name: "all.checkM", newLine: true)
-	.multiMap { file -> to_mOTUlizer: to_SuperPang: file }.set { all_checkm }
+
+fastq_to_bins.out.bintable.collectFile(name: "all.bintable", newLine: true) //concatenating all checkM and GTDB-Tk results
+	.multiMap { file -> to_mOTUlizer: to_SuperPang: file }.set { all_bintable }
 
 //all_bins = fastq_to_bins.out.bins.collect()
 fastq_to_bins.out.bins.collect().multiMap { bins -> to_mOTUlizer: to_mOTU_dirs: bins }.set { all_bins }
-bins_to_mOTUs(all_bins.to_mOTUlizer, all_checkm.to_mOTUlizer)
+bins_to_mOTUs(all_bins.to_mOTUlizer, all_bintable.to_mOTUlizer)
 
 /*
 Creating dirs for the mOTUs
@@ -90,11 +89,17 @@ create_mOTU_dirs(bins_to_mOTUs.out.mOTUs_file, all_bins.to_mOTU_dirs)
 /*
 Running SuperPang
 */
-mOTUs_to_pangenome(create_mOTU_dirs.out.flatten(), all_checkm.to_SuperPang.first())
+mOTUs_to_pangenome(create_mOTU_dirs.out.flatten(), all_bintable.to_SuperPang.first())
 
 //=======END OF WORKFLOW=============
 }
+//=======START OF PROCESS DEFINITIONS=============
 
+/*
+This process takes a tab-delimited samples file and converts it to individual files per sample.
+It also checks that the provided fastq-dir has the files specified in the samples file.
+Output is a list of all the individual samples files.
+*/
 process format_samples {
     label "short_time"
     cache "deep"
@@ -146,8 +151,11 @@ process format_samples {
     /$       
 }
 
+/*
+Takes raw reads and runs them through SqueezeMeta, resulting in bins.
+Output is the dir with all SqueezeMeta results, the bins, and the checkm results.
+*/
 process fastq_to_bins {
-    cache "deep"
     publishDir "${params.project}/sqm_res", mode: "copy", pattern: "${sample.baseName}"
     input:
     path(sample)
@@ -155,22 +163,22 @@ process fastq_to_bins {
     output:
     path("${sample.baseName}", emit: sample_dir)
     path("${sample.baseName}/results/bins/*.contigs.fa", emit: bins)
-    path("${sample.baseName}/intermediate/17.*.checkM", emit: checkm)
+    path("${sample.baseName}/results/18.*.bintable", emit: bintable)
     shell:
     '''
     echo "The sample file is !{sample.baseName} and the fastq dir is !{fastq_dir}"
     SAMPLE_ID="!{sample.baseName}"
-    SqueezeMeta.pl -m coassembly -f !{fastq_dir} -s !{sample} -p $SAMPLE_ID -binners maxbin,metabat2,concoct -t !{params.threads} -test 1 -contigid $SAMPLE_ID
-    10.mapsamples.pl $SAMPLE_ID
-    14.runbinning.pl $SAMPLE_ID
-    15.dastool.pl $SAMPLE_ID
-    17.checkM_batch.pl $SAMPLE_ID
+    SqueezeMeta.pl -m coassembly -f !{fastq_dir} -s !{sample} -p $SAMPLE_ID -binners maxbin,metabat2,concoct -t !{params.threads} -contigid $SAMPLE_ID --only-bins --gtdbtk
     '''
 
 }
-
+/*
+A processes that subsamples a million reads from each raw reads file for a sample,
+and then concatenates paired subsampled reads.
+Input is a tab delimited samples file and path to the directory with the raw reads.
+Output is a tuple of the sample name and the two resulting concatenated subsample files.
+*/
 process subsample_fastqs {
-    cache "deep"
     label "medium_time"
     input:
     path(sample)
@@ -225,7 +233,7 @@ process subsample_fastqs {
                 revs.append(filename)
             else:
                 raise Exception("Error with provided samples file. Make sure there's no header and that the third column says 'pair1' or 'pair2'")
-
+    #sorting the lists to make sure that matching fwds and revs are in the same index
     fwds = sorted(fwds)
     revs = sorted(revs)
 
@@ -235,7 +243,15 @@ process subsample_fastqs {
     
     /$
 }
+/*
+Add process for reading gtdbtk results
+*/
 
+
+
+/*
+This is going to get updated a lot.
+*/
 process bins_to_mOTUs {
     //the conda part might be changed later. If for example SuperPang gets updated to run with the newest version
     //of mOTUlizer this process doesn't need a separate environment
@@ -292,18 +308,18 @@ process mOTUs_to_pangenome {
     path(mOTU_dir)
     path(checkm_file)
     output:
-    path("pan_*", type: "dir")
+    path("pang/{mOTU_dir.baseName}", type: "dir")
     shell:
     """
     #!/bin/bash -ue
     #nextflow didn't interact well with the dollar-sign for command substitution, so I had to use the deprecated backquote method
     if (( `ls !{mOTU_dir}/* | wc -l` > 1 )); then #checking number of fasta files in mOTU_dir, no need for SuperPang if only one
         echo "Enough genomes to run pangenome computation"
-        SuperPang.py --fasta !{mOTU_dir}/* --checkm !{checkm_file} --output-dir pan_!{mOTU_dir}
+        SuperPang.py --fasta !{mOTU_dir}/* --checkm !{checkm_file} --output-dir pang/!{mOTU_dir} --header-prefix !{mOTU_dir} --output-as-file-prefix --nice-headers --debug #====REMOVE DEBUG LATER======
     else
         echo "Only one genome in mOTU. Copying to pangenome dir."
-        mkdir pan_!{mOTU_dir}
-        cp !{mOTU_dir}/* pan_!{mOTU_dir}/
+        #mkdir pang/!{mOTU_dir}/ #possibly not needed
+        cp !{mOTU_dir}/* pang/!{mOTU_dir}/
     fi
     """
 }
