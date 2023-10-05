@@ -70,26 +70,42 @@ fastq_to_bins(single_samps.to_bins, fastq_chan.to_bins.first())
 subsample_fastqs(single_samps.subsample, fastq_chan.subsample.first())
 
 /*
+Before running mOTUlizer, the checkM and GTDB-Tk outputs (bintables) need to be parsed.
+All bintables and all bins from different samples need to be collected so the taxonomy_parser process can run once with all data.
+*/
+//COMMENT AWAY STARTS HERE
+
+fastq_to_bins.out.bintable.collect().multiMap { bintables -> to_tax_parser: to_SuperPang: bintables }.set { all_bintables }
+fastq_to_bins.out.bins.collect().multiMap { bins -> to_tax_parser: to_mOTU_dirs: bins }.set { all_bins }
+
+parse_taxonomies(all_bins.to_tax_parser, all_bintables.to_tax_parser) //SOMETHING WRONG HERE
+
+/*
+Clustering of bins, if they've been presorted to lower taxonomic ranks this can spawn parallell process,
+*/
+bins_to_mOTUs(parse_taxonomies.out.tax_bin_dirs.flatten())
+
+/*
 To create mOTUs, all the bins need to be gathered into one process run, and all the checkm files need to be gathered
 into one and provided to the same process.
-*/
 
+OLD
 fastq_to_bins.out.bintable.collectFile(name: "all.bintable", newLine: true) //concatenating all checkM and GTDB-Tk results
 	.multiMap { file -> to_mOTUlizer: to_SuperPang: file }.set { all_bintable }
 
-//all_bins = fastq_to_bins.out.bins.collect()
 fastq_to_bins.out.bins.collect().multiMap { bins -> to_mOTUlizer: to_mOTU_dirs: bins }.set { all_bins }
 bins_to_mOTUs(all_bins.to_mOTUlizer, all_bintable.to_mOTUlizer)
+*/
 
 /*
 Creating dirs for the mOTUs
 */
-create_mOTU_dirs(bins_to_mOTUs.out.mOTUs_file, all_bins.to_mOTU_dirs)
+//create_mOTU_dirs(bins_to_mOTUs.out.mOTUs_file, all_bins.to_mOTU_dirs)
 
 /*
 Running SuperPang
 */
-mOTUs_to_pangenome(create_mOTU_dirs.out.flatten(), all_bintable.to_SuperPang.first())
+//mOTUs_to_pangenome(create_mOTU_dirs.out.flatten(), all_bintables.to_SuperPang.first())
 
 //=======END OF WORKFLOW=============
 }
@@ -153,7 +169,7 @@ process format_samples {
 
 /*
 Takes raw reads and runs them through SqueezeMeta, resulting in bins.
-Output is the dir with all SqueezeMeta results, the bins, and the checkm results.
+Output is the dir with all SqueezeMeta results, the bins, and the combined checkM and GTDB-Tk results.
 */
 process fastq_to_bins {
     publishDir "${params.project}/sqm_res", mode: "copy", pattern: "${sample.baseName}"
@@ -246,26 +262,106 @@ process subsample_fastqs {
 /*
 Add process for reading gtdbtk results
 */
-
+process parse_taxonomies {
+    label "medium_time" //maybe test if short_time could be reasonable for this
+    input:
+    path(bins)
+    path(all_bintables)
+    output:
+    path("*_bins", emit: tax_bin_dirs)
+    shell:
+    $/
+    #!/usr/bin/env python
+    import os
+    import glob
+    import pandas as pd
+    import shutil
+    ranks = ["root","auto","domain", "phylum","class","order", "family","genus","species"]
+    rank_param = "!{params.taxSort}" #NF PARAM
+    rank_param = rank_param.lower() #allow the user to spell with big letters
+    if rank_param not in ranks:
+        raise Exception(f"The provided sorting rank is not valid. Please use a taxonomic rank from the following list {ranks}")
+    #then read files to df
+    print("Reading bintables to dataframe")
+    all_bintable_files = glob.glob("*.bintable")
+    all_bintables = pd.DataFrame()
+    for file in all_bintable_files:
+        #read next file to be added, remove unneeded columns to save memory
+        next_table = pd.read_csv(file, sep='\t', header=1)
+        c_list = next_table.columns.to_list()
+        c_list = [e for e in c_list if e not in 
+                  ("Bin ID", "Tax GTDB-Tk", "Completeness", "Contamination")]
+        next_table = next_table.drop(labels=c_list, axis=1)
+        all_bintables = pd.concat((next_table, all_bintables), ignore_index=True)
+    
+    #rename bin id an taxonomy cols
+    print("Renaming columns")
+    all_bintables.rename(columns={"Bin ID": "Bin Id"}, inplace=True)
+    all_bintables.rename(columns={"Tax GTDB-Tk": "root"}, inplace=True)
+    #Convert to categorical data to save memory
+    print("Convert taxonomy column to categorical")
+    all_bintables["root"] = all_bintables["root"].astype("category")
+    #too small genomes won't give any completeness and contamination data, which is necessary for mOTUlizer
+    all_bintables.fillna(value={"Completeness" : 1, "Contamination" : 1}, inplace = True)
+    #split Tax GTDB-Tk/root column so I can easily search ranks.
+    print("Splitting taxonomy, and fixing Unclassified data.")
+    all_bintables[ranks[2:]] = all_bintables["root"].str.split(";", expand=True)
+    #making sure each rank column has either a classification or is unclassified
+    rank_cols = (dict([[e,"Unclassified"] for e in ranks[2:]]))
+    all_bintables.fillna(value=rank_cols, inplace=True)
+    #it's aslo possible for bins that were only classified at lower levels
+    #to have example s__ instead of a species. This should be unclassified instead.
+    tax_short = ["d__", "p__","c__","o__","f__","g__","s__"]
+    all_bintables.replace(to_replace=tax_short, value="Unclassified", inplace=True)
+    if rank_param == "auto":
+        #find lowest rank with more than 90% classified bins and change rank_param to that
+        print("Selected rank: auto. Finding lowest well classified rank.")
+        rank_not_selected = True
+        i = 8
+        tot_bins = len(all_bintables)
+        while rank_not_selected:
+            print(f"Checking unclassified proportion in {ranks[i]}.")
+            if i == 2:
+                rank_param = "root" #no lower classification was good enough quality
+                rank_not_selected = False
+            elif all_bintables[ranks[i]].value_counts()["Unclassified"]/tot_bins < 0.1:
+                rank_param = ranks[i]
+                rank_not_selected = False
+            else:
+                i = i-1 
+    #start sorting based on rank_param
+    #create dirs and taxonomic-sorted bintables 
+    print(f"Sorting based on {rank_param}.")
+    if rank_param == "root":
+        all_bintables["root"] = "root"
+    for group in all_bintables[rank_param].unique():
+        print(f"Writing {group} to dirs")
+        os.makedirs(group+"_bins")
+        all_bintables[all_bintables[rank_param] == group].to_csv(f"{group}_bins/{group}.bintable", index=None,
+                             sep='\t', columns = ["Bin Id","Completeness","Contamination"])
+        for bin_id in all_bintables['Bin Id'][all_bintables[rank_param] == group]:
+            shutil.copy2(bin_id+".fa", group+"_bins")
+    /$
+    
+}
 
 
 /*
 This is going to get updated a lot.
 */
 process bins_to_mOTUs {
-    //the conda part might be changed later. If for example SuperPang gets updated to run with the newest version
-    //of mOTUlizer this process doesn't need a separate environment
+    /*the conda part might be removed later. If for example SuperPang gets updated to run with the newest version
+    of mOTUlizer this process doesn't need a separate environment */
     conda 'bioconda::mOTUlizer=0.3.2'
     publishDir "${params.project}/", mode: "copy"
     input:
-    path(bins)
-    path(all_checkm)
+    path(tax_dir)
     output:
     path("mOTUs.tsv", emit: mOTUs_file)
     path("MAG_similarities.txt", emit: simi_file)
     shell:
     """
-    mOTUlize.py --fnas *.fa --checkm !{all_checkm} --MAG-completeness !{params.MAGcomplete} --MAG-contamination !{params.MAGcontam} --threads !{params.threads} --keep-simi-file MAG_similarities.txt -o mOTUs.tsv
+    mOTUlize.py --fnas !{tax_dir}/*.fa --checkm !{tax_dir}/*.bintable --MAG-completeness !{params.MAGcomplete} --MAG-contamination !{params.MAGcontam} --threads !{params.threads} --keep-simi-file MAG_similarities.txt -o mOTUs.tsv
     """
 }
 
