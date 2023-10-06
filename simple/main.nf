@@ -302,6 +302,7 @@ process parse_taxonomies {
     print("Convert taxonomy column to categorical")
     all_bintables["root"] = all_bintables["root"].astype("category")
     #too small genomes won't give any completeness and contamination data, which is necessary for mOTUlizer
+    
     all_bintables.fillna(value={"Completeness" : 1, "Contamination" : 1}, inplace = True)
     #split Tax GTDB-Tk/root column so I can easily search ranks.
     print("Splitting taxonomy, and fixing Unclassified data.")
@@ -336,11 +337,17 @@ process parse_taxonomies {
         all_bintables["root"] = "root"
     for group in all_bintables[rank_param].unique():
         print(f"Writing {group} to dirs")
-        os.makedirs(group+"_bins")
-        all_bintables[all_bintables[rank_param] == group].to_csv(f"{group}_bins/{group}.bintable", index=None,
-                             sep='\t', columns = ["Bin Id","Completeness","Contamination"])
-        for bin_id in all_bintables['Bin Id'][all_bintables[rank_param] == group]:
-            shutil.copy2(bin_id+".fa", group+"_bins")
+        g = all_bintables[all_bintables[rank_param] == group]
+        #check that the group has at least one bin of good enough quality for mOTUlizer. Otherwise skip.
+        #MIGHT BE REMOVED IF ANOTHER SOLUTION IS DECIDED
+        if len(g.loc[(g["Completeness"] > !{params.MAGcomplete}) & (g["Contamination"] < !{params.MAGcontam})]) == 0:
+            print(f"No {group} bin is good enough quality for clustering. Exlcuding from further analysis.")
+        else:
+            os.makedirs(group+"_bins")
+            g.to_csv(f"{group}_bins/{group}.bintable", index=None,
+                     sep='\t', columns = ["Bin Id","Completeness","Contamination"])
+            for bin_id in g['Bin Id']:
+                shutil.copy2(bin_id+".fa", group+"_bins")
     /$
     
 }
@@ -353,15 +360,18 @@ process bins_to_mOTUs {
     /*the conda part might be removed later. If for example SuperPang gets updated to run with the newest version
     of mOTUlizer this process doesn't need a separate environment */
     conda 'bioconda::mOTUlizer=0.3.2'
-    publishDir "${params.project}/", mode: "copy"
+    publishDir "${params.project}/mOTUs", mode: "copy"
     input:
     path(tax_dir)
     output:
-    path("mOTUs.tsv", emit: mOTUs_file)
-    path("MAG_similarities.txt", emit: simi_file)
+    tuple(env("group"), path("*_mOTUs.tsv"), emit: mOTUs_file)
+    path("*_similarities.txt", emit: simi_file)
     shell:
     """
-    mOTUlize.py --fnas !{tax_dir}/*.fa --checkm !{tax_dir}/*.bintable --MAG-completeness !{params.MAGcomplete} --MAG-contamination !{params.MAGcontam} --threads !{params.threads} --keep-simi-file MAG_similarities.txt -o mOTUs.tsv
+    #add here so output files are named based on group, otherwise they'll write over each other in publishdir
+    #group="!{tax_dir}" #not working
+    group=${!{tax_dir}%"_bins"} #this doesnt see group as a variable?? now getting error that bins is not a variable....
+    mOTUlize.py --fnas !{tax_dir}/*.fa --checkm !{tax_dir}/*.bintable --MAG-completeness !{params.MAGcomplete} --MAG-contamination !{params.MAGcontam} --threads !{params.threads} --keep-simi-file ${group}_similarities.txt -o ${group}_mOTUs.tsv
     """
 }
 
@@ -369,7 +379,7 @@ process create_mOTU_dirs {
     label "short_time"
     publishDir "${params.project}/mOTUs", mode: "copy"
     input:
-    path(motus_file)
+    tuple(val(group), path(motus_file))
     path(bins)
     output:
     path("mOTU_*", type: "dir")
