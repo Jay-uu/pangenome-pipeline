@@ -73,7 +73,6 @@ subsample_fastqs(single_samps.subsample, fastq_chan.subsample.first())
 Before running mOTUlizer, the checkM and GTDB-Tk outputs (bintables) need to be parsed.
 All bintables and all bins from different samples need to be collected so the taxonomy_parser process can run once with all data.
 */
-//COMMENT AWAY STARTS HERE
 
 fastq_to_bins.out.bintable.collect().multiMap { bintables -> to_tax_parser: to_SuperPang: bintables }.set { all_bintables }
 fastq_to_bins.out.bins.collect().multiMap { bins -> to_tax_parser: to_mOTU_dirs: bins }.set { all_bins }
@@ -87,15 +86,16 @@ bins_to_mOTUs(parse_taxonomies.out.tax_bin_dirs.flatten())
 
 
 /*
-Creating dirs for the mOTUs
+Creating dirs for the mOTUs by sorting based on the mOTUlizer output, so each mOTU directory has the correct bins.
 */
 create_mOTU_dirs(bins_to_mOTUs.out.mOTUs_file, all_bins.to_mOTU_dirs)
 
 /*
-Running SuperPang
+Running SuperPang, creating pangenomes. Transpose makes it so that each mOTU from the same grouping within
+the taxonomy selection will also be sent individually to the process together with the matching bintable.
 */
-//not working well now. Need to match the bintables correctly. Time to use tuples?
-mOTUs_to_pangenome(create_mOTU_dirs.out.transpose()) //, (all_bintables.to_SuperPang.first())
+
+mOTUs_to_pangenome(create_mOTU_dirs.out.transpose())
 
 
 //=======END OF WORKFLOW=============
@@ -251,7 +251,10 @@ process subsample_fastqs {
     /$
 }
 /*
-Add process for reading gtdbtk results
+Reads the GTDB-Tk results from the bintable files then sorts bins based on the group selected with params.taxSort.
+This can for example lead to species-directories, with all bins that were identified a specific species within the same directory.
+Input is all bins, and all bintables.
+Output is the new directories which contains bins and a tsv with completeness and contamination.
 */
 process parse_taxonomies {
     label "medium_time" //maybe test if short_time could be reasonable for this
@@ -345,7 +348,10 @@ process parse_taxonomies {
 
 
 /*
-This is going to get updated a lot.
+Clusters bins based on similarity.
+Input is a directory containing bins and a file with bin-name, completeness and contamination.
+Output is the name of the taxonomic classification of the bins (unless taxSort = root),
+a tsv with which bins belong to which mOTU, and the bintable file with quality data for the bins.
 */
 process bins_to_mOTUs {
     /*the conda part might be removed later. If for example SuperPang gets updated to run with the newest version
@@ -367,6 +373,12 @@ process bins_to_mOTUs {
     '''
 }
 
+/*
+Takes the output from mOTUlizer and the bins and sorts them into new directories based on which mOTU the belong to.
+Input: Tuple with: group, name of the taxonomic classification/prefix for filenames. motus_file, has information about which bins belong to which
+mOTU, and the bintable with bins quality data. Also takes the bins as input.
+Output is a tuple with the new mOTU directory and the bintable.
+*/
 process create_mOTU_dirs {
     label "short_time"
     publishDir "${params.project}/mOTUs", mode: "copy", pattern: "${group}_mOTU_*"
@@ -399,12 +411,16 @@ process create_mOTU_dirs {
                         print(f"{genome} being copied into !{group}_{mOTU} directory")
     '''
 }
-
+/*
+Creates pangenomes from a directory with bins and a tsv with bin completeness and contamination by running SuperPang.
+If there's not enough genomes to a mOTU, it will just copy the genome to results.
+Input is a tuple containing a directory with bins (preferably belonging to the same mOTU) and a bintable with completeness and contamination.
+Output is a directory with a subdirectory for the mOTU, containing the pangenome fasta file.
+*/
 process mOTUs_to_pangenome {
     publishDir "${params.project}/", mode: "copy"
     input:
     tuple(path(mOTU_dir), path(bintable))
-    //path(checkm_file)
     output:
     path("pangenomes/${mOTU_dir}", type: "dir")
     shell:
