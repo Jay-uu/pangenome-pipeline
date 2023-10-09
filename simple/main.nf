@@ -78,34 +78,25 @@ All bintables and all bins from different samples need to be collected so the ta
 fastq_to_bins.out.bintable.collect().multiMap { bintables -> to_tax_parser: to_SuperPang: bintables }.set { all_bintables }
 fastq_to_bins.out.bins.collect().multiMap { bins -> to_tax_parser: to_mOTU_dirs: bins }.set { all_bins }
 
-parse_taxonomies(all_bins.to_tax_parser, all_bintables.to_tax_parser) //SOMETHING WRONG HERE
+parse_taxonomies(all_bins.to_tax_parser, all_bintables.to_tax_parser) 
 
 /*
-Clustering of bins, if they've been presorted to lower taxonomic ranks this can spawn parallell process,
+Clustering of bins, if they've been presorted to lower taxonomic ranks this can spawn parallell processes
 */
 bins_to_mOTUs(parse_taxonomies.out.tax_bin_dirs.flatten())
 
-/*
-To create mOTUs, all the bins need to be gathered into one process run, and all the checkm files need to be gathered
-into one and provided to the same process.
-
-OLD
-fastq_to_bins.out.bintable.collectFile(name: "all.bintable", newLine: true) //concatenating all checkM and GTDB-Tk results
-	.multiMap { file -> to_mOTUlizer: to_SuperPang: file }.set { all_bintable }
-
-fastq_to_bins.out.bins.collect().multiMap { bins -> to_mOTUlizer: to_mOTU_dirs: bins }.set { all_bins }
-bins_to_mOTUs(all_bins.to_mOTUlizer, all_bintable.to_mOTUlizer)
-*/
 
 /*
 Creating dirs for the mOTUs
 */
-//create_mOTU_dirs(bins_to_mOTUs.out.mOTUs_file, all_bins.to_mOTU_dirs)
+create_mOTU_dirs(bins_to_mOTUs.out.mOTUs_file, all_bins.to_mOTU_dirs)
 
 /*
 Running SuperPang
 */
-//mOTUs_to_pangenome(create_mOTU_dirs.out.flatten(), all_bintables.to_SuperPang.first())
+//not working well now. Need to match the bintables correctly. Time to use tuples?
+mOTUs_to_pangenome(create_mOTU_dirs.out.transpose()) //, (all_bintables.to_SuperPang.first())
+
 
 //=======END OF WORKFLOW=============
 }
@@ -189,7 +180,7 @@ process fastq_to_bins {
 
 }
 /*
-A processes that subsamples a million reads from each raw reads file for a sample,
+A process that subsamples a million reads from each raw reads file for a sample,
 and then concatenates paired subsampled reads.
 Input is a tab delimited samples file and path to the directory with the raw reads.
 Output is a tuple of the sample name and the two resulting concatenated subsample files.
@@ -364,31 +355,32 @@ process bins_to_mOTUs {
     input:
     path(tax_dir)
     output:
-    tuple(env("group"), path("*_mOTUs.tsv"), emit: mOTUs_file)
+    tuple(env(group), path("*_mOTUs.tsv"), path("${tax_dir}/*.bintable"), emit: mOTUs_file) //maybe change name to better represent content
     path("*_similarities.txt", emit: simi_file)
     shell:
-    """
-    #add here so output files are named based on group, otherwise they'll write over each other in publishdir
-    #group="!{tax_dir}" #not working
-    group=${!{tax_dir}%"_bins"} #this doesnt see group as a variable?? now getting error that bins is not a variable....
+    '''
+    #!/bin/bash
+    group="!{tax_dir}"
+    group=${group%"_bins"}
+    echo $group
     mOTUlize.py --fnas !{tax_dir}/*.fa --checkm !{tax_dir}/*.bintable --MAG-completeness !{params.MAGcomplete} --MAG-contamination !{params.MAGcontam} --threads !{params.threads} --keep-simi-file ${group}_similarities.txt -o ${group}_mOTUs.tsv
-    """
+    '''
 }
 
 process create_mOTU_dirs {
     label "short_time"
-    publishDir "${params.project}/mOTUs", mode: "copy"
+    publishDir "${params.project}/mOTUs", mode: "copy", pattern: "${group}_mOTU_*"
     input:
-    tuple(val(group), path(motus_file))
+    tuple(val(group), path(motus_file), path(bintable))
     path(bins)
     output:
-    path("mOTU_*", type: "dir")
+    tuple(path("${group}_mOTU_*", type: "dir"), path("${bintable}"))
     shell:
-    """
+    '''
     #!/usr/bin/env python
     import os
     import shutil
-    min_genomes = !{params.min_mOTU_MAGs} ##add nextflow param
+    min_genomes = !{params.min_mOTU_MAGs} #nextflow param
     with open("!{motus_file}") as infile:
         for line in open("!{motus_file}"):
             if line.startswith("mOTU_"):
@@ -396,36 +388,39 @@ process create_mOTU_dirs {
                 mOTU, rep, mean_ANI, min_ANI, missing_edges, nb_MAGs, nb_SUBS, MAGs, *SUBs = fields
                 MAGs = MAGs.split(";")
                 if int(nb_MAGs) >= min_genomes:
-                    os.mkdir(mOTU)
+                    os.mkdir("!{group}_" + mOTU)
                     #will add here to make subs optional
                     if int(nb_SUBS) > 0:
                         SUBs = SUBs[0].split(";")
                         MAGs.extend(SUBs)
                     for genome in MAGs:
                         #move file to mOTU directory
-                        shutil.copy2(genome + ".fa", mOTU + "/")
-                        print(f"{genome} being copied into {mOTU} directory")
-    """
+                        shutil.copy2(genome + ".fa", "!{group}_" + mOTU + "/")
+                        print(f"{genome} being copied into !{group}_{mOTU} directory")
+    '''
 }
 
 process mOTUs_to_pangenome {
-    publishDir "${params.project}/pangenomes", mode: "copy"
+    publishDir "${params.project}/", mode: "copy"
     input:
-    path(mOTU_dir)
-    path(checkm_file)
+    tuple(path(mOTU_dir), path(bintable))
+    //path(checkm_file)
     output:
-    path("pang/{mOTU_dir.baseName}", type: "dir")
+    path("pangenomes/${mOTU_dir}", type: "dir")
     shell:
-    """
+    '''
     #!/bin/bash -ue
     #nextflow didn't interact well with the dollar-sign for command substitution, so I had to use the deprecated backquote method
+    mkdir pangenomes
     if (( `ls !{mOTU_dir}/* | wc -l` > 1 )); then #checking number of fasta files in mOTU_dir, no need for SuperPang if only one
         echo "Enough genomes to run pangenome computation"
-        SuperPang.py --fasta !{mOTU_dir}/* --checkm !{checkm_file} --output-dir pang/!{mOTU_dir} --header-prefix !{mOTU_dir} --output-as-file-prefix --nice-headers --debug #====REMOVE DEBUG LATER======
+        SuperPang.py --fasta !{mOTU_dir}/* --checkm !{bintable} --output-dir pangenomes/!{mOTU_dir} --header-prefix !{mOTU_dir} --output-as-file-prefix --nice-headers --debug #====REMOVE DEBUG LATER======
     else
         echo "Only one genome in mOTU. Copying to pangenome dir."
-        #mkdir pang/!{mOTU_dir}/ #possibly not needed
-        cp !{mOTU_dir}/* pang/!{mOTU_dir}/
+        mkdir pangenomes/!{mOTU_dir}/ #possibly not needed
+        cp !{mOTU_dir}/* pangenomes/!{mOTU_dir}/
     fi
-    """
+    '''
 }
+
+
