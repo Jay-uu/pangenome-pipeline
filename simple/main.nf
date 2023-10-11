@@ -202,7 +202,7 @@ process subsample_fastqs {
     import shutil
     
     """
-    A function which takes a list of fastq files and subsamples a million read from the combined files.
+    A function which takes a list of fastq files and subsamples a million reads from the combined files.
     Result is a compressed fq file.
     """
     def concat_subtk_compress(file_list, direction):
@@ -433,10 +433,47 @@ process mOTUs_to_pangenome {
         SuperPang.py --fasta !{mOTU_dir}/* --checkm !{bintable} --output-dir pangenomes/!{mOTU_dir} --header-prefix !{mOTU_dir} --output-as-file-prefix --nice-headers --debug #====REMOVE DEBUG LATER======
     else
         echo "Only one genome in mOTU. Copying to pangenome dir."
-        mkdir pangenomes/!{mOTU_dir}/ #possibly not needed
+        mkdir pangenomes/!{mOTU_dir}/ 
+        #change name in pangenome dir to end with singlemOTU.core.fasta
+        #also add to change header names?
         cp !{mOTU_dir}/* pangenomes/!{mOTU_dir}/
     fi
     '''
 }
 
+/*
+Skeleton for running checkm on pangenomes
+*/
+
+process checkm_pangenomes {
+    input:
+    path(pangenome_dir)
+    shell:
+    '''
+    #run checkm
+    #run checkm2
+    '''
+}
+
+/*
+Skeleton for mapping the subsets of the raw reads on the pangenomes
+*/
+process map_subset {
+    input:
+    tuple(path(pangenome_dir), path(sub_reads)) #use the combine operator on the channels in the workflow
+    shell:
+    '''
+    echo "Building index"
+    bowtie2-build !${pangenome_dir}/*.core.fasta index
+    #run bowtie2
+    #check if there are sub*R2 reads, if yes:
+    if test -f "sub_*_R2.fq.gz"; then #wildcard doesnt work here. Probably use ls some way instead.
+        echo "Running paired-end mode"
+        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz | samtools view -bS > alignment.bam #might change name, if output needs unique names
+    else
+        echo "Running single reads mode"
+        bowtie2 -x index 
+    fi
+    '''
+}
 
