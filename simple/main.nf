@@ -97,6 +97,16 @@ the taxonomy selection will also be sent individually to the process together wi
 
 mOTUs_to_pangenome(create_mOTU_dirs.out.transpose())
 
+/*
+create several channels for pangenomes since they are going to multiple processes
+*/
+mOTUs_to_pangenome.out.pangenome_dir.multiMap { dir -> to_map: to_checkm: dir }.set { pang_dirs }
+/*
+map subset reads to pangenome
+*/
+//pang_dirs.to_map.combine(subsample_fastqs.out.sub_reads).view()
+map_subset(pang_dirs.to_map.combine(subsample_fastqs.out.sub_reads))
+
 
 //=======END OF WORKFLOW=============
 }
@@ -191,7 +201,7 @@ process subsample_fastqs {
     path(sample)
     path(fastq_dir)
     output:
-    tuple val("${sample.baseName}"), path("sub_*.fq.gz")
+    tuple(val("${sample.baseName}"), path("sub_*.fq.gz"), emit: sub_reads)
     shell:
     $/
     #!/usr/bin/env python
@@ -422,7 +432,7 @@ process mOTUs_to_pangenome {
     input:
     tuple(path(mOTU_dir), path(bintable))
     output:
-    path("pangenomes/${mOTU_dir}", type: "dir")
+    path("pangenomes/${mOTU_dir}", type: "dir", emit: pangenome_dir)
     shell:
     '''
     #!/bin/bash -ue
@@ -436,7 +446,7 @@ process mOTUs_to_pangenome {
         mkdir pangenomes/!{mOTU_dir}/ 
         #change name in pangenome dir to end with singlemOTU.core.fasta
         #also add to change header names?
-        cp !{mOTU_dir}/* pangenomes/!{mOTU_dir}/
+        cp !{mOTU_dir}/*.fa pangenomes/!{mOTU_dir}/!{mOTU_dir}_singlemOTU.core.fasta
     fi
     '''
 }
@@ -452,27 +462,45 @@ process checkm_pangenomes {
     '''
     #run checkm
     #run checkm2
+    echo "nothing"
     '''
 }
+
 
 /*
 Skeleton for mapping the subsets of the raw reads on the pangenomes
 */
 process map_subset {
     input:
-    tuple(path(pangenome_dir), path(sub_reads)) #use the combine operator on the channels in the workflow
+    tuple(path(pangenome_dir), val(sample), path(sub_reads)) //use the combine operator on the channels in the workflow.
     shell:
     '''
+    pang_file=!{pangenome_dir}/*.core.fasta
+    pang_id=!{pangenome_dir.baseName}
+    reads_id=$(basename sub_*_R1.fq.gz _R1.fq.gz)
+    #*/ remove comment
+    #Checking core genome existence
+    if [ -s ${pang_file} ]; then
+        echo "Mapping samples to core genome"
+    else
+        echo "The core pangenome file is empty. Using the consensus assembly instead."
+        echo "This should not happen unless you're using mock communities."
+        pang_file=!{pangenome_dir}/*.NBPs.fasta
+        pang_id=$(basename $pang_file .NBPS.fasta)
+        pang_id=${pang_id}_consensus
+    fi
+    
     echo "Building index"
-    bowtie2-build !${pangenome_dir}/*.core.fasta index
+    bowtie2-build $pang_file index #*/ remove comment
+
     #run bowtie2
     #check if there are sub*R2 reads, if yes:
-    if test -f "sub_*_R2.fq.gz"; then #wildcard doesnt work here. Probably use ls some way instead.
+    if stat --printf='' sub_*_R2.fq.gz 2>/dev/null; then
         echo "Running paired-end mode"
-        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz | samtools view -bS > alignment.bam #might change name, if output needs unique names
+        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz | samtools view -bS > ${pang_id}_${reads_id}_alignment.bam
     else
-        echo "Running single reads mode"
-        bowtie2 -x index 
+        echo "Running unpaired reads mode"
+        bowtie2 -x index -U sub_*_R1.fq.gz | samtools view -bS > ${pang_id}_${reads_id}_alignment.bam
     fi
     '''
 }
