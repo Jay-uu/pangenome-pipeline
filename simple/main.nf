@@ -466,18 +466,18 @@ process checkm_pangenomes {
     '''
 }
 
-
 /*
-Skeleton for mapping the subsets of the raw reads on the pangenomes
+indexing
 */
-process map_subset {
+process index_pangenomes {
     input:
-    tuple(path(pangenome_dir), val(sample), path(sub_reads)) //use the combine operator on the channels in the workflow.
+    path(pangenome_dir)
+    output:
+    tuple(path(!{pangenome_dir}),path(index*), env(pang_id), emit: pang_index) 
     shell:
     '''
     pang_file=!{pangenome_dir}/*.core.fasta
     pang_id=!{pangenome_dir.baseName}
-    reads_id=$(basename sub_*_R1.fq.gz _R1.fq.gz)
     #*/ remove comment
     #Checking core genome existence
     if [ -s ${pang_file} ]; then
@@ -491,9 +491,21 @@ process map_subset {
     fi
     
     echo "Building index"
-    bowtie2-build $pang_file index #*/ remove comment
+    bowtie2-build $pang_file index
+    '''
+}
 
+/*
+Skeleton for mapping the subsets of the raw reads on the pangenomes
+*/
+process map_subset {
+    input:
+    tuple(path(pangenome_dir), val(sample), path(sub_reads)) //use the combine operator on the channels in the workflow.
+    shell:
+    '''
     #run bowtie2
+    reads_id=$(basename sub_*_R1.fq.gz _R1.fq.gz)
+    #UPDATE pang_id TO BE A NEXTFLOW VAR WHEN INDEX PROCESS WORKING
     #check if there are sub*R2 reads, if yes:
     if stat --printf='' sub_*_R2.fq.gz 2>/dev/null; then
         echo "Running paired-end mode"
@@ -502,6 +514,9 @@ process map_subset {
         echo "Running unpaired reads mode"
         bowtie2 -x index -U sub_*_R1.fq.gz | samtools view -bS > ${pang_id}_${reads_id}_alignment.bam
     fi
+    
+    echo "Computing coverage"
+    samtools coverage ${pang_id}_${reads_id}_alignment.bam -o ${pang_id}_${reads_id}_coverage.tsv
     '''
 }
 
