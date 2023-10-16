@@ -101,11 +101,19 @@ mOTUs_to_pangenome(create_mOTU_dirs.out.transpose())
 create several channels for pangenomes since they are going to multiple processes
 */
 mOTUs_to_pangenome.out.pangenome_dir.multiMap { dir -> to_map: to_checkm: dir }.set { pang_dirs }
+
+/*
+Index pangenomes for read mapping
+*/
+index_pangenomes(pang_dirs.to_map)
+
 /*
 map subset reads to pangenome
 */
+map_subset(index_pangenomes.out.pang_index.combine(subsample_fastqs.out.sub_reads))
+
 //pang_dirs.to_map.combine(subsample_fastqs.out.sub_reads).view()
-map_subset(pang_dirs.to_map.combine(subsample_fastqs.out.sub_reads))
+//map_subset(pang_dirs.to_map.combine(subsample_fastqs.out.sub_reads))
 
 
 //=======END OF WORKFLOW=============
@@ -473,7 +481,7 @@ process index_pangenomes {
     input:
     path(pangenome_dir)
     output:
-    tuple(path(!{pangenome_dir}),path(index*), env(pang_id), emit: pang_index) 
+    tuple(path(pangenome_dir),path("index*"), env(pang_id), emit: pang_index) 
     shell:
     '''
     pang_file=!{pangenome_dir}/*.core.fasta
@@ -500,23 +508,31 @@ Skeleton for mapping the subsets of the raw reads on the pangenomes
 */
 process map_subset {
     input:
-    tuple(path(pangenome_dir), val(sample), path(sub_reads)) //use the combine operator on the channels in the workflow.
+    tuple(path(pangenome_dir),path(index), val(pang_id), val(sample_ID), path(sub_reads)) //use the combine operator on the channels in the workflow.
+    output:
+    path("*_coverage.tsv")
     shell:
     '''
     #run bowtie2
     reads_id=$(basename sub_*_R1.fq.gz _R1.fq.gz)
-    #UPDATE pang_id TO BE A NEXTFLOW VAR WHEN INDEX PROCESS WORKING
     #check if there are sub*R2 reads, if yes:
     if stat --printf='' sub_*_R2.fq.gz 2>/dev/null; then
         echo "Running paired-end mode"
-        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz | samtools view -bS > ${pang_id}_${reads_id}_alignment.bam
+        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz | samtools view -bS > tmp_alignment.bam
     else
         echo "Running unpaired reads mode"
-        bowtie2 -x index -U sub_*_R1.fq.gz | samtools view -bS > ${pang_id}_${reads_id}_alignment.bam
+        bowtie2 -x index -U sub_*_R1.fq.gz | samtools view -bS > tmp_alignment.bam
     fi
     
+    echo "Sorting bam files"
+    samtools sort tmp_alignment.bam -O BAM -o !{pang_id}_${reads_id}_alignment.bam --threads !{params.threads}
+    
     echo "Computing coverage"
-    samtools coverage ${pang_id}_${reads_id}_alignment.bam -o ${pang_id}_${reads_id}_coverage.tsv
+    samtools coverage !{pang_id}_${reads_id}_alignment.bam -o !{pang_id}_${reads_id}_coverage.tsv
+    
+    echo "Removing .bam files" #to save space
+    rm *.bam #the sorted bams are named despite being deleted in case we decide a downstream process needs them.
+    
     '''
 }
 
