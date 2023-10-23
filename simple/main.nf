@@ -127,7 +127,6 @@ Output is a list of all the individual samples files.
 */
 process format_samples {
     label "short_time"
-    cache "deep"
     input:
     path(samples_file)
     path(fastq_dir)
@@ -434,6 +433,7 @@ Creates pangenomes from a directory with bins and a tsv with bin completeness an
 If there's not enough genomes to a mOTU, it will just copy the genome to results.
 Input is a tuple containing a directory with bins (preferably belonging to the same mOTU) and a bintable with completeness and contamination.
 Output is a directory with a subdirectory for the mOTU, containing the pangenome fasta file.
+This could possibly be changed to have different script parts, which would mean that I can have the python code for changing the name of the file and the fasta headers (the else part) directly in the process instead of in a separate script.
 */
 process mOTUs_to_pangenome {
     publishDir "${params.project}/", mode: "copy"
@@ -443,20 +443,42 @@ process mOTUs_to_pangenome {
     path("pangenomes/${mOTU_dir}", type: "dir", emit: pangenome_dir)
     shell:
     '''
-    #!/bin/bash -ue
-    #nextflow didn't interact well with the dollar-sign for command substitution, so I had to use the deprecated backquote method
-    mkdir pangenomes
-    if (( `ls !{mOTU_dir}/* | wc -l` > 1 )); then #checking number of fasta files in mOTU_dir, no need for SuperPang if only one
-        echo "Enough genomes to run pangenome computation"
-        SuperPang.py --fasta !{mOTU_dir}/* --checkm !{bintable} --output-dir pangenomes/!{mOTU_dir} --header-prefix !{mOTU_dir} --output-as-file-prefix --nice-headers --debug #====REMOVE DEBUG LATER======
-    else
-        echo "Only one genome in mOTU. Copying to pangenome dir."
-        mkdir pangenomes/!{mOTU_dir}/ 
-        #change name in pangenome dir to end with singlemOTU.core.fasta
-        #also add to change header names?
-        cp !{mOTU_dir}/*.fa pangenomes/!{mOTU_dir}/!{mOTU_dir}_singlemOTU.core.fasta
-    fi
+    #!/usr/bin/env python
+    from Bio import SeqIO
+    from subprocess import call
+    import os
+    import glob
+    
+    genomes = glob.glob("!{mOTU_dir}/*.fa")
+    nr_genomes = len(genomes)
+    pg_dir_name = "pangenomes"
+    os.makedirs(pg_dir_name)
+    
+    if nr_genomes > 1:
+        print("Enough genomes to run pangenome computation")
+        with open("input.fa", mode"wt") as fastas:
+            fastas.write("\n".join(genomes))
+        call(["SuperPang.py", "fasta", fastas, "output-dir", pg_dir_name/!{mOTU_dir}, "header-prefix", !{mOTU_dir},
+        "output-as-file-prefix", "nice-headers", "debug"]) #====REMOVE DEBUG LATER======
+    
+    elif nr_genomes == 1:
+        print("Only one genome in mOTU. Renaming headers and copying to pangenome dir.")
+
+        outfile="!{mOTU_dir}" + "_singlemOTU.core.fasta"
+        pangenome_file=f"{genomes[0]}"
+        os.makedirs(pg_dir_name+"/!{mOTU_dir}")
+        with open(pangenome_file, "rt") as pg:
+            all_contigs = list(SeqIO.parse(pg, "fasta")) 
+            pg_name = pangenome_file.split('.',1)[0]
+            for i,s in enumerate(all_contigs):
+                s.id =f"{pg_name}_NODE_Sc{i}-0-noinfo_length_{len(s.seq)}_cov_1.tag_noinfo" #renames contigs
+                s.description="" #remove the old name
+            with open(f"{pg_dir_name}/!{mOTU_dir}/" + outfile, "w") as output_handle:
+                SeqIO.write(all_contigs, output_handle, "fasta")
+    else:
+    raise Exception(f"No fastas found in !{mOTU_dir}")
     '''
+
 }
 
 /*
@@ -464,18 +486,44 @@ Skeleton for running checkm on pangenomes
 */
 
 process checkm_pangenomes {
+    publishDir "${params.project}/checkm_pangenomes", mode: "copy" //change after deciding whether to use checkm or checkm2
+    conda '/home/jay/mambaforge/envs/checkm2' //having issues with installing it. ALso, this is just for testing.
     input:
     path(pangenome_dir)
+    output:
+    path("!{pangenome_dir.baseName}_*.*")
     shell:
     '''
-    #run checkm
-    #run checkm2
-    echo "nothing"
+    core=!{pangenome_dir}/*.core.fasta
+    cnsus=!{pangenome_dir}/*.NBPs.fasta
+    pang_id=!{pangenome_dir.baseName}
+    
+    #run on both NBPs.fasta and NBPs.core.fasta if they both exist
+    if [ -s $core ]; then
+        echo "Running checkM on core genome."
+        checkm lineage_wf --genes -t !{params.threads} -x fasta $core cM1_core
+        checkm qa cM1_core/lineage.ms cM1_core > ${pang_id}_core_cM1_summary.txt
+        
+        echo "Running checkM2 on core genome."
+        checkm2 predict --threads !{params.threads} --input $core --stdout > ${pang_id}_core_cM2.tsv
+        
+    fi
+    
+    echo "Running checkM on consensus assembly"
+    checkm lineage_wf --genes -t !{params.threads} -x fasta $cnsus cM1_consensus
+    checkm qa cM1_consensus/lineage.ms cM1_consensus > ${pang_id}_consensus_cM1_summary.txt
+    
+    echo "Running checkM on consensus assembly"
+    checkm2 predict --threads !{params.threads} --input $cnsus --stdout > ${pang_id}_consensus_cM2.tsv
+    
     '''
 }
 
 /*
-indexing
+Indexing the pangenomes to use for read mapping.
+Input is the directory with SuperPang output for a pangenome.
+Output is the same directory, all of the index files and the environment variable set to either the base pangenome name,
+or the base pangenome name + "_consensus" if there was no core genome.
 */
 process index_pangenomes {
     input:
@@ -504,7 +552,11 @@ process index_pangenomes {
 }
 
 /*
-Skeleton for mapping the subsets of the raw reads on the pangenomes
+This process aligns raw reads to previously indexed genomes.
+It uses the names of the read files to determine if it should run in paired-end mode or not.
+Input is somewhat complicated. It takes a tuple of a directory with SuperPang output, the index files for the pangenome,
+a string with the pangenome name, a string with the name of the sample and the raw reads for that sample.
+Output is the coverage information of how well the reads mapped to the genome.
 */
 process map_subset {
     input:
