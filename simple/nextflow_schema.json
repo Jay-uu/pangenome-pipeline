@@ -12,6 +12,26 @@
     }
   },
   "definitions": {
+    "pangenome_parameters": {
+      "title": "Pangenome parameters",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "mean_cov_threshold": {
+          "type": "integer",
+          "default": 20,
+          "description": "Minimum mean coverage for a sample to match a pangenome",
+          "help_text": "The coverage is estimated based on a subset of one million reads from each read-file from a sample and extrapolated based on number of reads. In other words, this value determined the expected average minimum number of reads on each position in the pangenome."
+        },
+        "nr_samps_threshold": {
+          "type": "integer",
+          "default": 5,
+          "description": "Minimum number of matching samples for a pangenome to be considered for further analysis",
+          "help_text": "The minimum number of samples with good average expected coverage for a pangenome to be used for downstream analysis."
+        }
+      }
+    },
     "pipeline_parameters": {
       "title": "Pipeline parameters",
       "type": "object",
@@ -53,12 +73,14 @@
         "MAGcomplete": {
           "type": "integer",
           "default": 70,
-          "description": "Min. completeness of high quality MAGs"
+          "description": "Min. completeness of high quality MAGs",
+          "help_text": "Decides which bins/genomes are used to build the mOTU in mOTUlizer. Lower quality bins can still be recruited to mOTUs."
         },
         "MAGcontam": {
           "type": "integer",
           "default": 5,
-          "description": "Max. contamination of high quality MAGs"
+          "description": "Max. contamination of high quality MAGs",
+          "help_text": "Decides which bins/genomes are used to build the mOTU in mOTUlizer. Lower quality bins can still be recruited to mOTUs."
         },
         "min_mOTU_MAGs": {
           "type": "integer",
@@ -76,6 +98,9 @@
     }
   },
   "allOf": [
+    {
+      "$ref": "#/definitions/pangenome_parameters"
+    },
     {
       "$ref": "#/definitions/pipeline_parameters"
     },

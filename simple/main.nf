@@ -48,20 +48,22 @@ sam_chan = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
 	- Formating the individual sample files
 	- Running SqueezeMeta for each sample.
 	- Subsampling
-This creates three channels for the three different processes.
+	- Deciding which samples fit which pangenomes
+This creates four channels for the four different processes.
 */
 Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-	    .multiMap { dir -> format: to_bins: subsample: dir }.set { fastq_chan }
+	    .multiMap { dir -> format: to_bins: subsample: to_covpang: dir }.set { fastq_chan }
 
-/*Runs the process that creates individual samples files and creates two output channels:
+/*Runs the process that creates individual samples files and creates three output channels:
 	- For Squeezemeta (fastq_to_bins process)
 	- For the subsampling
+	- For creating samples files to the pangenomes
 */
 format_samples(sam_chan, fastq_chan.format)
-format_samples.out.flatten().multiMap { samp -> to_bins: subsample: samp }.set { single_samps }
+format_samples.out.flatten().multiMap { samp -> to_bins: subsample: to_covpang: samp }.set { single_samps }
 
 /* Runs the fastq_to_bins process.
-	flatten() to handle the created singles samples form format_samples individually
+	flatten() to handle the created singles samples from format_samples individually
 	first() to supply the fastq dir for each sample
 */
 fastq_to_bins(single_samps.to_bins, fastq_chan.to_bins.first())
@@ -100,20 +102,27 @@ mOTUs_to_pangenome(create_mOTU_dirs.out.transpose())
 /*
 create several channels for pangenomes since they are going to multiple processes
 */
-mOTUs_to_pangenome.out.pangenome_dir.multiMap { dir -> to_map: to_checkm: dir }.set { pang_dirs }
+mOTUs_to_pangenome.out.pangenome_dir.multiMap { dir -> to_map: to_checkm: to_checkm2: dir }.set { pang_dirs }
 
+/*
+Run checkM on pangenomes for validation
+*/
+checkm_pangenomes(pang_dirs.to_checkm)
+checkm2_pangenomes(pang_dirs.to_checkm2)
 /*
 Index pangenomes for read mapping
 */
 index_pangenomes(pang_dirs.to_map)
 
 /*
-map subset reads to pangenome
+map subset reads to pangenome and get coverage information
 */
 map_subset(index_pangenomes.out.pang_index.combine(subsample_fastqs.out.sub_reads))
 
-//pang_dirs.to_map.combine(subsample_fastqs.out.sub_reads).view()
-//map_subset(pang_dirs.to_map.combine(subsample_fastqs.out.sub_reads))
+/*
+Using the coverage from the mapping, decides which reads "belong" to which pangenome and creates new .samples files
+*/
+cov_to_pang_samples(map_subset.out.coverage.collect(), single_samps.to_covpang, fastq_chan.to_covpang)
 
 
 //=======END OF WORKFLOW=============
@@ -442,8 +451,8 @@ process mOTUs_to_pangenome {
     output:
     path("pangenomes/${mOTU_dir}", type: "dir", emit: pangenome_dir)
     shell:
-    '''
-    #!/usr/bin/env python
+    $/
+        #!/usr/bin/env python
     from Bio import SeqIO
     from subprocess import call
     import os
@@ -456,10 +465,10 @@ process mOTUs_to_pangenome {
     
     if nr_genomes > 1:
         print("Enough genomes to run pangenome computation")
-        with open("input.fa", mode"wt") as fastas:
+        with open("input.fa", "w") as fastas:
             fastas.write("\n".join(genomes))
-        call(["SuperPang.py", "fasta", fastas, "output-dir", pg_dir_name/!{mOTU_dir}, "header-prefix", !{mOTU_dir},
-        "output-as-file-prefix", "nice-headers", "debug"]) #====REMOVE DEBUG LATER======
+        call(["SuperPang.py", "--fasta", "input.fa", "--output-dir", f"{pg_dir_name}/!{mOTU_dir}", "--header-prefix", f"!{mOTU_dir}",
+        "--output-as-file-prefix", "--nice-headers", "--debug"]) #====REMOVE DEBUG LATER======
     
     elif nr_genomes == 1:
         print("Only one genome in mOTU. Renaming headers and copying to pangenome dir.")
@@ -476,22 +485,45 @@ process mOTUs_to_pangenome {
             with open(f"{pg_dir_name}/!{mOTU_dir}/" + outfile, "w") as output_handle:
                 SeqIO.write(all_contigs, output_handle, "fasta")
     else:
-    raise Exception(f"No fastas found in !{mOTU_dir}")
-    '''
-
+        raise Exception(f"No fastas found in !{mOTU_dir}")
+    /$
 }
 
 /*
+=====WARNING======
+THIS PROCESS IS NOT PORTABLE AT ALL. JUST FOR TESTING!
 Skeleton for running checkm on pangenomes
 */
 
 process checkm_pangenomes {
     publishDir "${params.project}/checkm_pangenomes", mode: "copy" //change after deciding whether to use checkm or checkm2
-    conda '/home/jay/mambaforge/envs/checkm2' //having issues with installing it. ALso, this is just for testing.
     input:
     path(pangenome_dir)
     output:
-    path("!{pangenome_dir.baseName}_*.*")
+    path("*_cM1_summary.txt")
+    shell:
+    '''
+    pang_id=!{pangenome_dir.baseName}
+    #using the SqueezeMeta installation of checkm
+    installpath="/home/jay/mambaforge/envs/SqueezeMeta/SqueezeMeta"    
+
+    echo "Running checkM on all fastas in $pang_id"
+    PATH=$installpath/bin:$installpath/bin/pplacer:$installpath/bin/hmmer:$PATH $installpath/bin/checkm lineage_wf -t !{params.threads} -x fasta !{pangenome_dir} ${pang_id}_cM1
+    PATH=$installpath/bin:$installpath/bin/pplacer:$installpath/bin/hmmer:$PATH $installpath/bin/checkm qa ${pang_id}_cM1/lineage.ms ${pang_id}_cM1 > ${pang_id}_cM1_summary.txt
+    
+    '''
+}
+
+/*
+This process might be removed if we decide to use checkM instead
+*/
+process checkm2_pangenomes {
+    publishDir "${params.project}/checkm_pangenomes", mode: "copy" //change after deciding whether to use checkm or checkm2
+    conda '/home/jay/mambaforge/envs/checkm2' //temporary until we decide which checkM version to use
+    input:
+    path(pangenome_dir)
+    output:
+    path("*_cM2.tsv")
     shell:
     '''
     core=!{pangenome_dir}/*.core.fasta
@@ -500,22 +532,15 @@ process checkm_pangenomes {
     
     #run on both NBPs.fasta and NBPs.core.fasta if they both exist
     if [ -s $core ]; then
-        echo "Running checkM on core genome."
-        checkm lineage_wf --genes -t !{params.threads} -x fasta $core cM1_core
-        checkm qa cM1_core/lineage.ms cM1_core > ${pang_id}_core_cM1_summary.txt
-        
         echo "Running checkM2 on core genome."
-        checkm2 predict --threads !{params.threads} --input $core --stdout > ${pang_id}_core_cM2.tsv
+        checkm2 predict --threads !{params.threads} --input $core --output-directory ${pang_id}_core_cM2 --stdout > ${pang_id}_core_cM2.tsv
         
     fi
     
-    echo "Running checkM on consensus assembly"
-    checkm lineage_wf --genes -t !{params.threads} -x fasta $cnsus cM1_consensus
-    checkm qa cM1_consensus/lineage.ms cM1_consensus > ${pang_id}_consensus_cM1_summary.txt
-    
-    echo "Running checkM on consensus assembly"
-    checkm2 predict --threads !{params.threads} --input $cnsus --stdout > ${pang_id}_consensus_cM2.tsv
-    
+    if [ -s $cnsus ]; then
+        echo "Running checkM2 on consensus assembly"
+        checkm2 predict --threads !{params.threads} --input $cnsus --output-directory ${pang_id}_consensus_cM2 --stdout > ${pang_id}_consensus_cM2.tsv
+    fi
     '''
 }
 
@@ -562,7 +587,7 @@ process map_subset {
     input:
     tuple(path(pangenome_dir),path(index), val(pang_id), val(sample_ID), path(sub_reads)) //use the combine operator on the channels in the workflow.
     output:
-    path("*_coverage.tsv")
+    path("*_coverage.tsv", emit: coverage)
     shell:
     '''
     #run bowtie2
@@ -587,4 +612,84 @@ process map_subset {
     
     '''
 }
+
+process cov_to_pang_samples {
+    label "medium_time"
+    publishDir "${params.project}/pangenomes", mode: "copy"
+    input:
+    path(coverage)
+    path(singles_dir)
+    path(fastq_dir)
+    output:
+    path("*.samples", emit: pangenome_samples)
+    shell:
+    $/
+    #!/usr/bin/env python
+    import os
+    import pandas as pd
+    import glob
+    from Bio import SeqIO
+    import gzip
+    
+    mean_cov_threshold = !{params.mean_cov_threshold} 
+    nr_samps_threshold = !{params.nr_samps_threshold}
+    fastq_dir = "!{fastq_dir}"
+    
+    def get_weighted_mean(infile, samps_dict, old_samps):
+        pang_id = infile.split("_sub_",1)[0]
+        samp_name = infile.split("sub_",1)[1].split("_")[0]
+        cov = pd.read_csv(infile, sep="\t")
+        #meandepth is the mean depth of coverage over that contig
+        #endpos-startpos=contig lenght
+        #add two columns? total-depth + contig_length? then to calc on all
+        cov["contig_length"] = cov.apply(lambda row : (row.endpos - row.startpos)+1, axis=1)
+        cov["totaldepth"] = cov.apply(lambda row : row.meandepth*row.contig_length, axis=1)
+        weigh_mean=(cov["totaldepth"]/sum(cov["contig_length"])).sum()
+        #expected average coverage: ((average/million reads)/million)* total number of reads per sample
+        #this might get weird actually, because I extracted a million reads from each fastq
+        #not from each sample, since some of them have multiple read files
+        #for now, multiply with number of fastqs that were mapped
+        exp_cov = (weigh_mean/1000000*old_samps[samp_name]["nr_fastas"])*old_samps[samp_name]["tot_reads"]
+        if exp_cov >= mean_cov_threshold: 
+            samps_dict.setdefault(pang_id, []).append(samp_name)
+
+    #First we need to know how many read files belong to each sample,
+    #and the total amount of reads to a sample
+    print("Creating old samples dictionary")
+    old_samps = {}
+    for samples_file in glob.glob("singles/*.samples"):
+        sample = pd.read_csv(samples_file, sep='\t', names=["sample","read", "pair"])
+        nr_fastas = len(sample["read"])
+        tot_reads = 0
+        for fastagz in sample["read"]:
+            with gzip.open(f"{fastq_dir}/{fastagz}", "rt") as fasta:
+                reads = list(SeqIO.parse(fasta, "fastq")) #raw reads are assumed to be fastq format
+                tot_reads = tot_reads + len(reads)
+        old_samps[sample['sample'][0]] = {"nr_fastas": nr_fastas,
+                             "tot_reads": tot_reads}
+    
+    print("Creating new samples dictionary")                         
+    cov_files = glob.glob("*_coverage.tsv")
+    new_samps = {}
+    for f in cov_files:
+        get_weighted_mean(f, new_samps, old_samps)
+    
+    print("Writing pangenome.samples files")
+    for pang_id in list(new_samps.keys()):
+        #checking that enough samples mapped well to the pangenome
+        if len(new_samps[pang_id]) >= nr_samps_threshold:
+            samp_df = pd.DataFrame()
+            for samp in new_samps[pang_id]:
+                samples_file = pd.read_csv(f"singles/{samp}.samples", sep='\t', names=["sample","read", "pair"])
+                samp_df = pd.concat((samples_file, samp_df))
+            samp_df["sample"] = pang_id
+            samp_df.to_csv(f"{pang_id}.samples", header=False, index=None, sep='\t')
+            
+    if len(glob.glob("*.samples")) < 1:
+        raise Exception("It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --mean_cov_threshold and/or nr_samps_threshold, or perhaps using more samples.")
+    
+    /$
+}
+
+
 
