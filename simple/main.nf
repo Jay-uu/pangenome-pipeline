@@ -122,7 +122,7 @@ map_subset(index_pangenomes.out.pang_index.combine(subsample_fastqs.out.sub_read
 /*
 Using the coverage from the mapping, decides which reads "belong" to which pangenome and creates new .samples files
 */
-cov_to_pang_samples(map_subset.out.coverage.collect(), single_samps.to_covpang, fastq_chan.to_covpang)
+cov_to_pang_samples(map_subset.out.coverage.collect(), single_samps.to_covpang.collect(), fastq_chan.to_covpang)
 
 
 //=======END OF WORKFLOW=============
@@ -621,7 +621,7 @@ process cov_to_pang_samples {
     path(singles_dir)
     path(fastq_dir)
     output:
-    path("*.samples", emit: pangenome_samples)
+    path("samples/*.samples", emit: pangenome_samples)
     shell:
     $/
     #!/usr/bin/env python
@@ -641,7 +641,6 @@ process cov_to_pang_samples {
         cov = pd.read_csv(infile, sep="\t")
         #meandepth is the mean depth of coverage over that contig
         #endpos-startpos=contig lenght
-        #add two columns? total-depth + contig_length? then to calc on all
         cov["contig_length"] = cov.apply(lambda row : (row.endpos - row.startpos)+1, axis=1)
         cov["totaldepth"] = cov.apply(lambda row : row.meandepth*row.contig_length, axis=1)
         weigh_mean=(cov["totaldepth"]/sum(cov["contig_length"])).sum()
@@ -657,7 +656,7 @@ process cov_to_pang_samples {
     #and the total amount of reads to a sample
     print("Creating old samples dictionary")
     old_samps = {}
-    for samples_file in glob.glob("singles/*.samples"):
+    for samples_file in glob.glob("*.samples"):
         sample = pd.read_csv(samples_file, sep='\t', names=["sample","read", "pair"])
         nr_fastas = len(sample["read"])
         tot_reads = 0
@@ -667,23 +666,26 @@ process cov_to_pang_samples {
                 tot_reads = tot_reads + len(reads)
         old_samps[sample['sample'][0]] = {"nr_fastas": nr_fastas,
                              "tot_reads": tot_reads}
+    print(f"The old samps dict contains {old_samps}")
     
     print("Creating new samples dictionary")                         
     cov_files = glob.glob("*_coverage.tsv")
     new_samps = {}
     for f in cov_files:
         get_weighted_mean(f, new_samps, old_samps)
+    print(f"The new samps dict contains {new_samps}")
     
     print("Writing pangenome.samples files")
+    os.makedirs("samples")
     for pang_id in list(new_samps.keys()):
         #checking that enough samples mapped well to the pangenome
         if len(new_samps[pang_id]) >= nr_samps_threshold:
             samp_df = pd.DataFrame()
             for samp in new_samps[pang_id]:
-                samples_file = pd.read_csv(f"singles/{samp}.samples", sep='\t', names=["sample","read", "pair"])
+                samples_file = pd.read_csv(f"{samp}.samples", sep='\t', names=["sample","read", "pair"])
                 samp_df = pd.concat((samples_file, samp_df))
             samp_df["sample"] = pang_id
-            samp_df.to_csv(f"{pang_id}.samples", header=False, index=None, sep='\t')
+            samp_df.to_csv(f"samples/{pang_id}.samples", header=False, index=None, sep='\t')
             
     if len(glob.glob("*.samples")) < 1:
         raise Exception("It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --mean_cov_threshold and/or nr_samps_threshold, or perhaps using more samples.")
