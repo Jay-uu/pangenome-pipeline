@@ -523,24 +523,14 @@ process checkm2_pangenomes {
     input:
     path(pangenome_dir)
     output:
-    path("*_cM2.tsv")
+    path("*_cM2", type: "dir")
     shell:
     '''
-    core=!{pangenome_dir}/*.core.fasta
-    cnsus=!{pangenome_dir}/*.NBPs.fasta
     pang_id=!{pangenome_dir.baseName}
     
-    #run on both NBPs.fasta and NBPs.core.fasta if they both exist
-    if [ -s $core ]; then
-        echo "Running checkM2 on core genome."
-        checkm2 predict --threads !{params.threads} --input $core --output-directory ${pang_id}_core_cM2 --stdout > ${pang_id}_core_cM2.tsv
-        
-    fi
-    
-    if [ -s $cnsus ]; then
-        echo "Running checkM2 on consensus assembly"
-        checkm2 predict --threads !{params.threads} --input $cnsus --output-directory ${pang_id}_consensus_cM2 --stdout > ${pang_id}_consensus_cM2.tsv
-    fi
+    echo "Running checkM2 on core genome."
+    checkm2 predict --threads !{params.threads} --input !{pangenome_dir} -x fasta --output-directory ${pang_id}_core_cM2 --output-directory ${pang_id}_cM2
+
     '''
 }
 
