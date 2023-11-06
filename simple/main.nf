@@ -122,7 +122,7 @@ map_subset(index_pangenomes.out.pang_index.combine(subsample_fastqs.out.sub_read
 /*
 Using the coverage from the mapping, decides which reads "belong" to which pangenome and creates new .samples files
 */
-cov_to_pang_samples(map_subset.out.coverage.collect(), single_samps.to_covpang.collect(), fastq_chan.to_covpang)
+//cov_to_pang_samples(map_subset.out.coverage.collect(), single_samps.to_covpang.collect(), fastq_chan.to_covpang)
 
 
 //=======END OF WORKFLOW=============
@@ -201,7 +201,7 @@ process fastq_to_bins {
     '''
     echo "The sample file is !{sample.baseName} and the fastq dir is !{fastq_dir}"
     SAMPLE_ID="!{sample.baseName}"
-    SqueezeMeta.pl -m coassembly -f !{fastq_dir} -s !{sample} -p $SAMPLE_ID -binners maxbin,metabat2,concoct -t !{params.threads} -contigid $SAMPLE_ID --only-bins --gtdbtk
+    SqueezeMeta.pl -m coassembly -f !{fastq_dir} -s !{sample} -p $SAMPLE_ID -binners maxbin,metabat2,concoct -t !{params.threads} --onlybins --gtdbtk
     '''
 
 }
@@ -218,12 +218,14 @@ process subsample_fastqs {
     path(fastq_dir)
     output:
     tuple(val("${sample.baseName}"), path("sub_*.fq.gz"), emit: sub_reads)
+    path("*_readcount.txt", emit: readcount)
     shell:
     $/
     #!/usr/bin/env python
     import os
     from pathlib import Path
     from subprocess import call
+    from subprocess import check_output
     import gzip
     import shutil
     
@@ -251,9 +253,11 @@ process subsample_fastqs {
     
     fwds = []
     revs = []
-
+    
+    fq_count = 0 #number of read files for this sample
     with open("!{sample}") as infile:
         for line in open("!{sample}"):
+            fq_count = fq_count+1
             fields = line.strip().split("\t")
             if len(fields) < 3:
                 raise Exception(f"Missing columns or wrong delimiter on line: {line}")
@@ -274,6 +278,17 @@ process subsample_fastqs {
     if len(revs) > 0:
         concat_subtk_compress(revs, "R2")
     
+    tot_reads = 0
+    for fq in (fwds + revs):
+        print(f"Counting reads in {fq}")
+        reads_bases = check_output(["seqtk", "size",f"!{fastq_dir}/{fq}"], text=True)
+        reads = int(reads_bases.split()[0]) #0 is nr reads, 1 is nr nucleotides
+        tot_reads = tot_reads + reads
+        
+    #write file with samp_name, nr fqs and tot_reads
+    with open(f"{sample_ID}_readcount.txt", "w") as out:
+        out.write('Sample\tNr_fastqs\tTotal_reads\n')
+        out.write('\t'.join([f"{sample_ID}", str(fq_count), str(tot_reads)]))    
     /$
 }
 /*
@@ -490,9 +505,7 @@ process mOTUs_to_pangenome {
 }
 
 /*
-=====WARNING======
-THIS PROCESS IS NOT PORTABLE AT ALL. JUST FOR TESTING!
-Skeleton for running checkm on pangenomes
+Running checkm on pangenomes
 */
 
 process checkm_pangenomes {
@@ -505,11 +518,11 @@ process checkm_pangenomes {
     '''
     pang_id=!{pangenome_dir.baseName}
     #using the SqueezeMeta installation of checkm
-    installpath="/home/jay/mambaforge/envs/SqueezeMeta/SqueezeMeta"    
+    installpath=$CONDA_PREFIX/SqueezeMeta/bin
 
     echo "Running checkM on all fastas in $pang_id"
-    PATH=$installpath/bin:$installpath/bin/pplacer:$installpath/bin/hmmer:$PATH $installpath/bin/checkm lineage_wf -t !{params.threads} -x fasta !{pangenome_dir} ${pang_id}_cM1
-    PATH=$installpath/bin:$installpath/bin/pplacer:$installpath/bin/hmmer:$PATH $installpath/bin/checkm qa ${pang_id}_cM1/lineage.ms ${pang_id}_cM1 > ${pang_id}_cM1_summary.txt
+    PATH=$installpath:$installpath/pplacer:$installpath/hmmer:$PATH $installpath/checkm lineage_wf -t !{params.threads} -x fasta !{pangenome_dir} ${pang_id}_cM1
+    PATH=$installpath:$installpath/pplacer:$installpath/hmmer:$PATH $installpath/checkm qa ${pang_id}_cM1/lineage.ms ${pang_id}_cM1 > ${pang_id}_cM1_summary.txt
     
     '''
 }
