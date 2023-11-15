@@ -48,11 +48,12 @@ sam_chan = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
 	- Formating the individual sample files
 	- Running SqueezeMeta for each sample.
 	- Subsampling
-	- Deciding which samples fit which pangenomes
+	- Deciding which samples fit which pangenomes (maybe not, double check!!)
+	- Mapping reads to the pangenomes
 This creates four channels for the four different processes.
 */
 Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-	    .multiMap { dir -> format: to_bins: subsample: to_covpang: dir }.set { fastq_chan }
+	    .multiMap { dir -> format: to_bins: subsample: to_covpang: to_pang_to_bams: dir }.set { fastq_chan }
 
 /*Runs the process that creates individual samples files and creates three output channels:
 	- For Squeezemeta (fastq_to_bins process)
@@ -99,6 +100,7 @@ the taxonomy selection will also be sent individually to the process together wi
 
 mOTUs_to_pangenome(create_mOTU_dirs.out.transpose())
 
+
 /*
 create several channels for pangenomes since they are going to multiple processes
 */
@@ -124,6 +126,28 @@ Using the coverage from the mapping, decides which reads "belong" to which pange
 */
 cov_to_pang_samples(map_subset.out.coverage.collect(),single_samps.to_covpang.collect(), subsample_fastqs.out.readcount.collect())
 
+/*
+Using the generated samples files for the pangenome, the raw reads and the pangenome assembly to map reads using SqueezeMeta.
+cov_to_pang_samples need to flatten the output, and then:
+NEED TO MATCH RIGHT SAMPLE TO RIGHT PANG_DIR
+*/
+//Create keys to match right samples file to right NBPs fasta (from same pangenome)
+cov_to_pang_samples.out.pang_samples
+		.flatten()
+		.map { [it.getSimpleName(), it] }
+		.set { pang_samples }
+
+mOTUs_to_pangenome.out.NBPs_fasta
+		.map { [it.getSimpleName(), it] }
+		.set { NBPs_fasta }
+
+/*
+pang_to_bams(pang_samples.combine(NBPs_fasta, by: 0).map { name, samples, pang_dir -> [samples, pang_dir] },
+				fastq_chan.to_pang_to_bams.first())
+		//.view()
+*/
+pang_to_bams(pang_samples.combine(NBPs_fasta, by: 0),
+				fastq_chan.to_pang_to_bams.first())
 
 //=======END OF WORKFLOW=============
 }
@@ -460,16 +484,19 @@ Output is a directory with a subdirectory for the mOTU, containing the pangenome
 This could possibly be changed to have different script parts, which would mean that I can have the python code for changing the name of the file and the fasta headers (the else part) directly in the process instead of in a separate script.
 */
 process mOTUs_to_pangenome {
-    publishDir "${params.project}/", mode: "copy"
+    publishDir "${params.project}/", mode: "copyNoFollow"
     input:
     tuple(path(mOTU_dir), path(bintable))
     output:
     path("pangenomes/${mOTU_dir}", type: "dir", emit: pangenome_dir)
+    path("pangenomes/${mOTU_dir}/*.NBPs.fasta", emit: NBPs_fasta)
     shell:
     $/
-        #!/usr/bin/env python
+    
+    #!/usr/bin/env python
     from Bio import SeqIO
     from subprocess import call
+    from pathlib import Path
     import os
     import glob
     
@@ -488,7 +515,8 @@ process mOTUs_to_pangenome {
     elif nr_genomes == 1:
         print("Only one genome in mOTU. Renaming headers and copying to pangenome dir.")
 
-        outfile="!{mOTU_dir}" + "_singlemOTU.core.fasta"
+        outfile= f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".singlemOTU.core.fasta"
+        symfile = f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".singlemOTU.NBPs.fasta"
         pangenome_file=f"{genomes[0]}"
         os.makedirs(pg_dir_name+"/!{mOTU_dir}")
         with open(pangenome_file, "rt") as pg:
@@ -497,8 +525,10 @@ process mOTUs_to_pangenome {
             for i,s in enumerate(all_contigs):
                 s.id =f"{pg_name}_NODE_Sc{i}-0-noinfo_length_{len(s.seq)}_cov_1.tag_noinfo" #renames contigs
                 s.description="" #remove the old name
-            with open(f"{pg_dir_name}/!{mOTU_dir}/" + outfile, "w") as output_handle:
+            with open(outfile, "w") as output_handle:
                 SeqIO.write(all_contigs, output_handle, "fasta")
+        #symlinking so that it can be sent as NBPs_fasta output
+        Path(symfile).symlink_to("!{mOTU_dir}" + ".singlemOTU.core.fasta")
     else:
         raise Exception(f"No fastas found in !{mOTU_dir}")
     /$
@@ -702,13 +732,31 @@ process cov_to_pang_samples {
                 samples_file = pd.read_csv(f"{sample}.samples", sep='\t', names=["sample","read", "pair"])
                 samp_df = pd.concat((samples_file, samp_df))
             print(f"Creating new samples file for {pang_id}")
-            samp_df["sample"] = pang_id
             samp_df.to_csv(f"{outdir}/{pang_id}.samples", header=False, index=None, sep='\t')
             
     if len(glob.glob(f"{outdir}/*.samples")) < 1:
         raise Exception("It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --mean_cov_threshold and/or --nr_samps_threshold, or perhaps using more samples.")
    
     /$
+}
+
+process pang_to_bams {
+    publishDir "${params.project}/pangenomes/sqm", mode: "copy"
+    input:
+    tuple(val(pang_ID), path(samples), path(pangenome_dir))
+    path(fastq_dir)
+    output:
+    //path("${samples.baseName}", emit: pang_sqm)
+    path("${pang_ID}", type: "dir", emit: pang_sqm)
+    shell:
+    '''
+    echo "Running SqueezeMeta on pangenome !{pangenome_dir} to map reads."
+    #skips binning, assembly and renaming since we already have these things.
+    #Mapping reads with a minimum of 95% identity
+    #SAMPLE_ID="!{samples.baseName}" #I'd like this to be the simpleName so maybe I should use it in the tuple input instead
+    #SqueezeMeta.pl -m coassembly -p $SAMPLE_ID -f !{fastq_dir} -s !{samples} -extassembly *.NBPs.fasta -t !{params.threads} --nobins --norename -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05"
+    SqueezeMeta.pl -m coassembly -p !{pang_ID} -f !{fastq_dir} -s !{samples} -extassembly *.NBPs.fasta -t !{params.threads} --nobins --norename -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05" 
+    '''
 }
 
 
