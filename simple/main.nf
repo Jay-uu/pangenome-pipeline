@@ -149,6 +149,11 @@ pang_to_bams(pang_samples.combine(NBPs_fasta, by: 0).map { name, samples, pang_d
 pang_to_bams(pang_samples.combine(NBPs_fasta, by: 0),
 				fastq_chan.to_pang_to_bams.first())
 
+/*
+
+*/
+downsample_bams(pang_to_bams.out.pang_sqm)
+
 //=======END OF WORKFLOW=============
 }
 //=======START OF PROCESS DEFINITIONS=============
@@ -739,7 +744,9 @@ process cov_to_pang_samples {
    
     /$
 }
-
+/*
+Runs squeezemeta by providing the pangenomes consensus assembly as assembly input.
+*/
 process pang_to_bams {
     publishDir "${params.project}/pangenomes/sqm", mode: "copy"
     input:
@@ -752,12 +759,95 @@ process pang_to_bams {
     '''
     echo "Running SqueezeMeta on pangenome !{pangenome_dir} to map reads."
     #skips binning, assembly and renaming since we already have these things.
-    #Mapping reads with a minimum of 95% identity
-    #SAMPLE_ID="!{samples.baseName}" #I'd like this to be the simpleName so maybe I should use it in the tuple input instead
-    #SqueezeMeta.pl -m coassembly -p $SAMPLE_ID -f !{fastq_dir} -s !{samples} -extassembly *.NBPs.fasta -t !{params.threads} --nobins --norename -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05"
+    #Mapping reads with a minimum of 95% identity    #SAMPLE_ID="!{samples.baseName}" #I'd like this to be the simpleName so maybe I should use it in the tuple input instead
     SqueezeMeta.pl -m coassembly -p !{pang_ID} -f !{fastq_dir} -s !{samples} -extassembly *.NBPs.fasta -t !{params.threads} --nobins --norename -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05" 
     '''
 }
+
+/*
+This process takes the SqueezeMeta output and downsamples the bam files to get even coverage between samples, in preparation for Variant Calling.
+The downsampling shell code is modified from POGENOM's Input_pogenom pipeline by Anders Andersson and Luis F. Delgado
+See here: https://github.com/EnvGen/POGENOM/blob/master/Input_POGENOM/src/cov_bdrth_in_dataset.sh
+*/
+process downsample_bams {
+    input:
+    path(pang_sqm)
+    output:
+    tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam")) //, emit: ref_merged), optional: true //some issue here
+    shell:
+    '''    
+    #Get total length of NBPs longer than 1000
+    echo "Counting positions"
+    positions=$(grep -oP '(?<=length_).*(?=_cov)' !{pang_sqm}/results/01.*.fasta | awk '{ if( $1*1 >= 1000) {SUM += $1} } END { print SUM }' )
+    
+    #Create tmp bams
+    echo "Creating tmp bams"
+    mkdir tmp_bams
+    for bam in !{pang_sqm}/data/bam/*.bam;
+    do
+        #filter for contigs over 1000 bases put them in tmp_bams
+        #names of contigs longer than 1000 in first column, and the length of contig in second column
+        samtools idxstats $bam | awk '$2 >= 1000 { print $0 }' > contigs.tsv
+        awk ' { print $1, 1, $2} ' contigs.tsv > contigs.bed
+        #create tmp bams
+        bam_ID=$(basename $bam .bam)
+        samtools view -b -L contigs.bed $bam > tmp_bams/${bam_ID}.bam
+    done
+    
+    mkdir -p !{pang_sqm}_mergeable
+    echo "Creating mpileup files and checking breadth and coverage."    
+    #create mpileup files
+    for bam in tmp_bams/*.bam;
+    do
+        samtools mpileup -d 1000000 -Q 15 -a $bam > tmp.mpileup
+    
+        # ---- arguments
+        mpileupfile=tmp.mpileup
+        bamfile=$bam
+        outbamfile=$(basename $bam bam)subsampled.bam #name of output
+        mag=!{pang_sqm} #pangenome name
+        mincov=!{params.min_med_cov}
+        minbreadth=!{params.min_breadth}
+        samplename=$(basename ${bam#"!{pang_sqm}."} .bam)
+
+        #--- Median coverage
+        cov=$(cut -f4 $mpileupfile | grep -vw "0" | sort -n | awk ' { a[i++]=$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
+
+        #---breadth
+        non_zero=$(cut -f4 $mpileupfile | grep -cvw "0")
+        breadth=$(echo $non_zero*100/$positions | bc -l )
+
+        echo "Genome:" $mag "- Sample:" $samplename "Median_coverage:" $cov " breadth %:" $breadth
+
+        #---selection of BAM files and subsample
+        if (( $(echo "$breadth >= $minbreadth" | bc -l) )) && (( $(echo "$cov >= $mincov" | bc -l) )); then
+            echo "        Downsampling coverage to $mincov - Genome: $mag - Sample: $samplename "
+            limite=$(echo "scale=3; $mincov/$cov" | bc )
+            samp=$(echo "scale=3; ($limite)+10" | bc)
+            samtools view -Sbh --threads !{params.threads} -s $samp $bamfile | samtools sort -o !{pang_sqm}_mergeable/$outbamfile --threads !{params.threads}
+        fi
+    done
+    
+    #Merge bam-files that pass the check, if more than one bam in mergeable/ #*/ what to do if no files?
+    #thoughts if at least one file in mergeable, create new fasta with only long contigs
+    #also, how to name the output?
+    
+    if [ -z "$(ls -A !{pang_sqm}_mergeable" ]; then #MAYBE AN ISSUE HERE
+         echo "No sample fit the alignment criteria. Skipping further analysis for !{pang_sqm}"
+    else
+        echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over 1000 bases."
+        ls !{pang_sqm}_mergeable/*.bam > bamlist.txt
+        samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{params.threads}
+        samtools idxstats merged.bam | awk '$2 >= 1000 { print $0 }' > long_contigs.tsv
+        awk '{ print $1 }' long_contigs.tsv > contig_names.tsv
+        seqtk subseq !{pang_sqm}/results/01.*.fasta contig_names.tsv > !{pang_sqm}_long_contigs.fasta
+    
+    #add cleanup step?
+    '''
+
+}
+
+
 
 
 
