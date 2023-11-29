@@ -42,8 +42,9 @@ if (workflow.resume == false) {
 }
 
 workflow {
-
+//File with which fastq files belong to which samples. Tab delimited iwth sample-name, fastq file name and pair.
 sam_chan = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
+
 /*The fastq_dir is needed for:
 	- Formating the individual sample files
 	- Running SqueezeMeta for each sample.
@@ -127,11 +128,8 @@ Using the coverage from the mapping, decides which reads "belong" to which pange
 cov_to_pang_samples(map_subset.out.coverage.collect(),single_samps.to_covpang.collect(), subsample_fastqs.out.readcount.collect())
 
 /*
-Using the generated samples files for the pangenome, the raw reads and the pangenome assembly to map reads using SqueezeMeta.
-cov_to_pang_samples need to flatten the output, and then:
-NEED TO MATCH RIGHT SAMPLE TO RIGHT PANG_DIR
+Create keys to match right samples file to right NBPs fasta (from same pangenome) as input to pang_to_bams.
 */
-//Create keys to match right samples file to right NBPs fasta (from same pangenome)
 cov_to_pang_samples.out.pang_samples
 		.flatten()
 		.map { [it.getSimpleName(), it] }
@@ -142,17 +140,25 @@ mOTUs_to_pangenome.out.NBPs_fasta
 		.set { NBPs_fasta }
 
 /*
-pang_to_bams(pang_samples.combine(NBPs_fasta, by: 0).map { name, samples, pang_dir -> [samples, pang_dir] },
-				fastq_chan.to_pang_to_bams.first())
-		//.view()
+Using the generated samples files for the pangenome, the raw reads and the pangenome assembly to map reads using SqueezeMeta.
 */
 pang_to_bams(pang_samples.combine(NBPs_fasta, by: 0),
 				fastq_chan.to_pang_to_bams.first())
 
 /*
+Checking the breadth and the coverage of bams on the pangenome/ref-genome. Downsampling to even coverage and merging into one bam-file.
+*/
+downsample_bams_merge(pang_to_bams.out.pang_sqm)
+
+/*
+Running freebayes on the merged bam to get a filtered vcf file.
+*/
+detect_variants(downsample_bams_merge.out.ref_merged)
+
+/*
 
 */
-downsample_bams(pang_to_bams.out.pang_sqm)
+//pogenom(detect_variants.out.vcf, pang_sqm.to_pogenom)
 
 //=======END OF WORKFLOW=============
 }
@@ -485,7 +491,7 @@ process create_mOTU_dirs {
 Creates pangenomes from a directory with bins and a tsv with bin completeness and contamination by running SuperPang.
 If there's not enough genomes to a mOTU, it will just copy the genome to results.
 Input is a tuple containing a directory with bins (preferably belonging to the same mOTU) and a bintable with completeness and contamination.
-Output is a directory with a subdirectory for the mOTU, containing the pangenome fasta file.
+Output is a directory with a subdirectory for the mOTU, containing the pangenome fasta file and the NBPs.fasta in an individual channel.
 This could possibly be changed to have different script parts, which would mean that I can have the python code for changing the name of the file and the fasta headers (the else part) directly in the process instead of in a separate script.
 */
 process mOTUs_to_pangenome {
@@ -650,7 +656,19 @@ process map_subset {
     
     '''
 }
-
+/*
+This process calculates which pangenomes have enough samples that pass the expected average coverage threshold to create new .samples files
+for the pangenomes that will then be used to align the reads of those samples to the pangenomes for further analysis. Input should be the 
+collected output from map_subset coverage, single_samps and subsample_fastqs readcount, so that all samples are processed with one process run.
+Input: 
+       coverage: A file with samtools coverage output, which has the depth of how reads from a sample mapped to a pangenome/reference genome.
+       singles: The previously generated .samples files with which reads belong to which sample.
+       readcounts: A file named {sample}_readcount.txt which conatains how many fastq files with reads belong to the sample, and the total number of reads 
+       in those fastqs.
+Output:
+       pang_cpm_cov: Two files, one with the calculated results for CPM and the other with coverage.
+       pang_samples: The new .samples files for the pangenomes.
+*/
 process cov_to_pang_samples {
     label "medium_time"
     publishDir "${params.project}/pangenomes", mode: "copy"
@@ -686,7 +704,7 @@ process cov_to_pang_samples {
         cov["contig_length"] = cov.apply(lambda row : (row.endpos - row.startpos)+1, axis=1)
         cov["totaldepth"] = cov.apply(lambda row : row.meandepth*row.contig_length, axis=1) #rounds to nearest int
         weigh_mean=(cov["totaldepth"].sum()/cov["contig_length"].sum())
-        #expected average coverage: ((average/million reads)/million* total number of reads per sample)
+        #expected average coverage: ((average/million reads)/million*) total number of reads per sample
         weigh_mean_per_read = (weigh_mean/(1000000*nr_fqs))
         exp_cov = weigh_mean_per_read*tot_reads
         return weigh_mean_per_read, exp_cov
@@ -745,35 +763,46 @@ process cov_to_pang_samples {
     /$
 }
 /*
-Runs squeezemeta by providing the pangenomes consensus assembly as assembly input.
+Runs squeezemeta to map samples to the pangenome consensus assembly or a reference genome.
+Input:
+      A tuple with pangenome name, the .samples file for the pangenome/reference genome and the the fasta file for the pangenome/ref genome.
+      The directory with raw reads.
+Output:
+      The new SqueezeMeta output directory.
 */
 process pang_to_bams {
     publishDir "${params.project}/pangenomes/sqm", mode: "copy"
     input:
-    tuple(val(pang_ID), path(samples), path(pangenome_dir))
+    tuple(val(pang_ID), path(samples), path(pang_fasta))
     path(fastq_dir)
     output:
-    //path("${samples.baseName}", emit: pang_sqm)
     path("${pang_ID}", type: "dir", emit: pang_sqm)
     shell:
     '''
-    echo "Running SqueezeMeta on pangenome !{pangenome_dir} to map reads."
+    echo "Running SqueezeMeta on pangenome/reference genome !{pang_fasta} to map reads."
     #skips binning, assembly and renaming since we already have these things.
-    #Mapping reads with a minimum of 95% identity    #SAMPLE_ID="!{samples.baseName}" #I'd like this to be the simpleName so maybe I should use it in the tuple input instead
-    SqueezeMeta.pl -m coassembly -p !{pang_ID} -f !{fastq_dir} -s !{samples} -extassembly *.NBPs.fasta -t !{params.threads} --nobins --norename -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05" 
+    #Mapping reads with a minimum of 95% identity
+    SqueezeMeta.pl -m coassembly -p !{pang_ID} -f !{fastq_dir} -s !{samples} -extassembly !{pang_fasta} -t !{params.threads} --nobins --norename -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05" 
     '''
 }
 
 /*
 This process takes the SqueezeMeta output and downsamples the bam files to get even coverage between samples, in preparation for Variant Calling.
+Input: the results directory from SqueezeMeta.
+Output: Since there is a possibility that no bams fit the minimum coverage and breadth criteria, this process might have no output or it will send
+        a tuple with a fasta file of all contigs longer than 1000 bases from the input pangenome and a merged bam-file from all bams that passed the breadth
+        and coverage criteria.
 The downsampling shell code is modified from POGENOM's Input_pogenom pipeline by Anders Andersson and Luis F. Delgado
 See here: https://github.com/EnvGen/POGENOM/blob/master/Input_POGENOM/src/cov_bdrth_in_dataset.sh
 */
-process downsample_bams {
+process downsample_bams_merge {
+    label "medium_time"
+    publishDir "${params.project}/pogenom/merged_bam_info", mode: "copy", pattern: "*_merged_bams.tsv"
     input:
     path(pang_sqm)
     output:
-    tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam")) //, emit: ref_merged), optional: true //some issue here
+    tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam"), optional: true, emit: ref_merged)
+    path("*_merged_bams.tsv", emit: passed_bams)
     shell:
     '''    
     #Get total length of NBPs longer than 1000
@@ -785,13 +814,15 @@ process downsample_bams {
     mkdir tmp_bams
     for bam in !{pang_sqm}/data/bam/*.bam;
     do
-        #filter for contigs over 1000 bases put them in tmp_bams
+        #Filter to select only paired reads (-f 2) and avoids optical duplicates (-F 1024)
+        samtools view -Sbh -f 2 -F 1024 -q 20 --threads !{params.threads} $bam > tmp_filtered.bam
+        #filter for contigs over 1000 bases put reads aligning to them in tmp_bams
         #names of contigs longer than 1000 in first column, and the length of contig in second column
-        samtools idxstats $bam | awk '$2 >= 1000 { print $0 }' > contigs.tsv
+        samtools idxstats tmp_filtered.bam | awk '$2 >= 1000 { print $0 }' > contigs.tsv
         awk ' { print $1, 1, $2} ' contigs.tsv > contigs.bed
         #create tmp bams
         bam_ID=$(basename $bam .bam)
-        samtools view -b -L contigs.bed $bam > tmp_bams/${bam_ID}.bam
+        samtools view -b -L contigs.bed --threads !{params.threads} tmp_filtered.bam > tmp_bams/${bam_ID}.bam
     done
     
     mkdir -p !{pang_sqm}_mergeable
@@ -808,7 +839,7 @@ process downsample_bams {
         mag=!{pang_sqm} #pangenome name
         mincov=!{params.min_med_cov}
         minbreadth=!{params.min_breadth}
-        samplename=$(basename ${bam#"!{pang_sqm}."} .bam)
+        samplename=$(basename ${bam#"${mag}."} .bam)
 
         #--- Median coverage
         cov=$(cut -f4 $mpileupfile | grep -vw "0" | sort -n | awk ' { a[i++]=$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
@@ -822,6 +853,8 @@ process downsample_bams {
         #---selection of BAM files and subsample
         if (( $(echo "$breadth >= $minbreadth" | bc -l) )) && (( $(echo "$cov >= $mincov" | bc -l) )); then
             echo "        Downsampling coverage to $mincov - Genome: $mag - Sample: $samplename "
+            #ADD TO SAVE WHICH BAMS PASSED THE CHECKS
+            echo -e $mag'\t'$bam >> ${mag}_merged_bams.tsv
             limite=$(echo "scale=3; $mincov/$cov" | bc )
             samp=$(echo "scale=3; ($limite)+10" | bc)
             samtools view -Sbh --threads !{params.threads} -s $samp $bamfile | samtools sort -o !{pang_sqm}_mergeable/$outbamfile --threads !{params.threads}
@@ -831,20 +864,67 @@ process downsample_bams {
     #Merge bam-files that pass the check, if more than one bam in mergeable/ #*/ what to do if no files?
     #thoughts if at least one file in mergeable, create new fasta with only long contigs
     #also, how to name the output?
-    
-    if [ -z "$(ls -A !{pang_sqm}_mergeable" ]; then #MAYBE AN ISSUE HERE
+    echo "Checking mergeable"
+    if [ -z "$(ls -A !{pang_sqm}_mergeable)" ]; then
          echo "No sample fit the alignment criteria. Skipping further analysis for !{pang_sqm}"
     else
         echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over 1000 bases."
         ls !{pang_sqm}_mergeable/*.bam > bamlist.txt
         samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{params.threads}
-        samtools idxstats merged.bam | awk '$2 >= 1000 { print $0 }' > long_contigs.tsv
+        samtools idxstats !{pang_sqm}_merged.bam | awk '$2 >= 1000 { print $0 }' > long_contigs.tsv
         awk '{ print $1 }' long_contigs.tsv > contig_names.tsv
         seqtk subseq !{pang_sqm}/results/01.*.fasta contig_names.tsv > !{pang_sqm}_long_contigs.fasta
-    
+    fi
     #add cleanup step?
     '''
 
+}
+
+/*
+Run freebayes, simple version for now. Check if can control to run more if it only uses 1 thread?
+Input: a pangenome/reference fasta file and a (preferably) downsampled and merged bam-file.
+Output: A filtered vcf file.
+*/
+process detect_variants {
+    publishDir "${params.project}/pogenom/vcfs", mode: "copy"
+    input:
+    tuple(path(pangenome), path(bam))
+    output:
+    path("*_filtered.vcf")
+    shell:
+    '''
+    pang_ID=$(basename !{pangenome} _long_contigs.fasta)
+    #why cant I find an option to specify threads...
+    echo "Detecting variants in !{pangenome}"
+    echo "Indexing !{bam}"
+    samtools index !{bam}
+    echo "Indexing !{pangenome}"
+    samtools faidx !{pangenome} -o !{pangenome}.fai
+    echo "Running freebayes"
+    freebayes -f !{pangenome} -C 4 -p 1 --pooled-continuous --read-max-mismatch-fraction 0.05 --min-alternate-fraction 0.01 -q 15 --report-monomorphic !{bam} > ${pang_ID}_unfiltered.vcf
+    echo "Filtering vcf"
+    vcffilter -f 'QUAL > 20' ${pang_ID}_unfiltered.vcf > ${pang_ID}_filtered.vcf
+    vcfsamplenames ${pang_ID}_filtered.vcf > ${pang_ID}_samples.txt
+    echo "Done"
+    '''
+}
+
+/*
+
+*/
+process pogenom {
+    publishDir "${params.project}/pogenom", mode: "copy"
+    input:
+    //vcf file
+    path(vcf)
+    //pang_sqm for gff file
+    path(pang_sqm)
+    output:
+    path(unknown)
+    shell:
+    '''
+    #Fernando will give me a wrapper script for this, that I will call here
+    '''
 }
 
 
