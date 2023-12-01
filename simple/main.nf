@@ -815,7 +815,7 @@ process downsample_bams_merge {
     for bam in !{pang_sqm}/data/bam/*.bam;
     do
         #Filter to select only paired reads (-f 2) and avoids optical duplicates (-F 1024)
-        samtools view -Sbh -f 2 -F 1024 -q 20 --threads !{params.threads} $bam > tmp_filtered.bam
+        samtools view -Sbh -F 1024 -q 20 --threads !{params.threads} $bam > tmp_filtered.bam
         #filter for contigs over 1000 bases put reads aligning to them in tmp_bams
         #names of contigs longer than 1000 in first column, and the length of contig in second column
         samtools idxstats tmp_filtered.bam | awk '$2 >= 1000 { print $0 }' > contigs.tsv
