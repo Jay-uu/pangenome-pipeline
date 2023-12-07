@@ -42,7 +42,7 @@ if (workflow.resume == false) {
 }
 
 workflow {
-//File with which fastq files belong to which samples. Tab delimited iwth sample-name, fastq file name and pair.
+//File with which fastq files belong to which samples. Tab delimited with sample-name, fastq file name and pair.
 sam_chan = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
 
 /*The fastq_dir is needed for:
@@ -54,7 +54,7 @@ sam_chan = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
 This creates four channels for the four different processes.
 */
 Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-	    .multiMap { dir -> format: to_bins: subsample: to_covpang: to_pang_to_bams: dir }.set { fastq_chan }
+	    .multiMap { dir -> format: to_bins: subsample: to_pang_to_bams: dir }.set { fastq_chan }
 
 /*Runs the process that creates individual samples files and creates three output channels:
 	- For Squeezemeta (fastq_to_bins process)
@@ -78,7 +78,7 @@ Before running mOTUlizer, the checkM and GTDB-Tk outputs (bintables) need to be 
 All bintables and all bins from different samples need to be collected so the taxonomy_parser process can run once with all data.
 */
 
-fastq_to_bins.out.bintable.collect().multiMap { bintables -> to_tax_parser: to_SuperPang: bintables }.set { all_bintables }
+fastq_to_bins.out.bintable.collect().multiMap { bintables -> to_tax_parser: bintables }.set { all_bintables } //SHOULD EDIT HERE TO REMOVE MULTIMAP
 fastq_to_bins.out.bins.collect().multiMap { bins -> to_tax_parser: to_mOTU_dirs: bins }.set { all_bins }
 
 parse_taxonomies(all_bins.to_tax_parser, all_bintables.to_tax_parser) 
@@ -487,6 +487,7 @@ process create_mOTU_dirs {
                         print(f"{genome} being copied into !{group}_{mOTU} directory")
     '''
 }
+
 /*
 Creates pangenomes from a directory with bins and a tsv with bin completeness and contamination by running SuperPang.
 If there's not enough genomes to a mOTU, it will just copy the genome to results.
@@ -548,7 +549,6 @@ process mOTUs_to_pangenome {
 /*
 Running checkm on pangenomes
 */
-
 process checkm_pangenomes {
     publishDir "${params.project}/checkm_pangenomes", mode: "copy" //change after deciding whether to use checkm or checkm2
     input:
@@ -656,6 +656,7 @@ process map_subset {
     
     '''
 }
+
 /*
 This process calculates which pangenomes have enough samples that pass the expected average coverage threshold to create new .samples files
 for the pangenomes that will then be used to align the reads of those samples to the pangenomes for further analysis. Input should be the 
@@ -762,6 +763,7 @@ process cov_to_pang_samples {
    
     /$
 }
+
 /*
 Runs squeezemeta to map samples to the pangenome consensus assembly or a reference genome.
 Input:
@@ -781,7 +783,7 @@ process pang_to_bams {
     '''
     echo "Running SqueezeMeta on pangenome/reference genome !{pang_fasta} to map reads."
     #skips binning, assembly and renaming since we already have these things.
-    #Mapping reads with a minimum of 95% identity
+    #Mapping reads with a minimum of 95% identity using bowtie2
     SqueezeMeta.pl -m coassembly -p !{pang_ID} -f !{fastq_dir} -s !{samples} -extassembly !{pang_fasta} -t !{params.threads} --nobins --norename -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05" 
     '''
 }
@@ -795,14 +797,13 @@ Output: Since there is a possibility that no bams fit the minimum coverage and b
 The downsampling shell code is modified from POGENOM's Input_pogenom pipeline by Anders Andersson and Luis F. Delgado
 See here: https://github.com/EnvGen/POGENOM/blob/master/Input_POGENOM/src/cov_bdrth_in_dataset.sh
 */
+//MAYBE REMOVE THE MERGED_BAMS TSV AND THE CODE FOR IT NOW SINCE VCFLIB SAMPLENAMES WORKS
 process downsample_bams_merge {
     label "medium_time"
-    publishDir "${params.project}/pogenom/merged_bam_info", mode: "copy", pattern: "*_merged_bams.tsv"
     input:
     path(pang_sqm)
     output:
     tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam"), optional: true, emit: ref_merged)
-    path("*_merged_bams.tsv", emit: passed_bams)
     shell:
     '''    
     #Get total length of NBPs longer than 1000
@@ -853,8 +854,6 @@ process downsample_bams_merge {
         #---selection of BAM files and subsample
         if (( $(echo "$breadth >= $minbreadth" | bc -l) )) && (( $(echo "$cov >= $mincov" | bc -l) )); then
             echo "        Downsampling coverage to $mincov - Genome: $mag - Sample: $samplename "
-            #ADD TO SAVE WHICH BAMS PASSED THE CHECKS
-            echo -e $mag'\t'$bam >> ${mag}_merged_bams.tsv
             limite=$(echo "scale=3; $mincov/$cov" | bc )
             samp=$(echo "scale=3; ($limite)+10" | bc)
             samtools view -Sbh --threads !{params.threads} -s $samp $bamfile | samtools sort -o !{pang_sqm}_mergeable/$outbamfile --threads !{params.threads}
@@ -890,7 +889,8 @@ process detect_variants {
     input:
     tuple(path(pangenome), path(bam))
     output:
-    path("*_filtered.vcf")
+    path("*_filtered.vcf", emit: filt_vcf)
+    path("*_samples.txt", emit: samps_txt)
     shell:
     '''
     pang_ID=$(basename !{pangenome} _long_contigs.fasta)
