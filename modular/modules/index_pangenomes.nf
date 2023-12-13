@@ -3,6 +3,7 @@ Indexing the pangenomes to use for read mapping.
 Input is the directory with SuperPang output for a pangenome.
 Output is the same directory, all of the index files and the environment variable set to either the base pangenome name,
 or the base pangenome name + "_consensus" if there was no core genome.
+This is separate from map_subset, since each pangenome only needs to be indexed once but will likely have multiple samples mapped to it.
 */
 process index_pangenomes {
     input:

@@ -12,6 +12,7 @@ process mOTUs_to_pangenome {
     output:
     path("pangenomes/${mOTU_dir}", type: "dir", emit: pangenome_dir)
     path("pangenomes/${mOTU_dir}/*.NBPs.fasta", emit: NBPs_fasta)
+    path("pangenomes/${mOTU_dir}/*.core.fasta", emit: core_fasta)
     shell:
     $/
     
@@ -26,6 +27,7 @@ process mOTUs_to_pangenome {
     nr_genomes = len(genomes)
     pg_dir_name = "pangenomes"
     os.makedirs(pg_dir_name)
+    core_name = f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".NBPs.core.fasta"
     
     if nr_genomes > 1:
         print("Enough genomes to run pangenome computation")
@@ -33,11 +35,21 @@ process mOTUs_to_pangenome {
             fastas.write("\n".join(genomes))
         call(["SuperPang.py", "--fasta", "input.fa", "--output-dir", f"{pg_dir_name}/!{mOTU_dir}", "--header-prefix", f"!{mOTU_dir}",
         "--output-as-file-prefix", "--nice-headers", "--debug"]) #====REMOVE DEBUG LATER======
+        #Check if core file is empty
+        if os.stat(core_name).st_size == 0:
+            print("Core genome file empty. Will use the consensus assembly for read mapping.")
+            print("This shouldn't happen unless you're using mock communities.")
+            #make consensus.core.fasta as symlink
+            new_core_name = f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".consensus.core.fasta"
+            Path(new_core_name).symlink_to("!{mOTU_dir}" + ".NBPs.fasta")
+            #and remove the old core fasta, since I can't output python variables and this makes the output flexible
+            Path.unlink(Path(core_name))
     
     elif nr_genomes == 1:
         print("Only one genome in mOTU. Renaming headers and copying to pangenome dir.")
 
         outfile= f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".singlemOTU.core.fasta"
+        core_name = outfile
         symfile = f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".singlemOTU.NBPs.fasta"
         pangenome_file=f"{genomes[0]}"
         os.makedirs(pg_dir_name+"/!{mOTU_dir}")
