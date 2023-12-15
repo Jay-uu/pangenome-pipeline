@@ -13,6 +13,7 @@ process pang_to_bams {
     path(fastq_dir)
     output:
     path("${pang_ID}", type: "dir", emit: pang_sqm)
+    tuple(val("${pang_ID}"), path("${pang_ID}/results/03.*.gff", type: "file"), path("${pang_fasta}"), emit: id_gff_genome)
     shell:
     '''
     echo "Running SqueezeMeta on pangenome/reference genome !{pang_fasta} to map reads."

@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
+  "title": ". pipeline parameters",
+  "description": "",
+  "type": "object",
+  "properties": {
+    "help": {
+      "type": "string",
+      "help_text": "Information on how to use the pipeline",
+      "description": "Usage help"
+    }
+  },
+  "definitions": {
+    "alternative_entrypoints": {
+      "title": "Alternative entrypoints",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "bins": {
+          "type": "string",
+          "description": "Skip assembly and binning. Provide a directory with assembled bins fasta files",
+          "help_text": "undecided"
+        },
+        "assembly": {
+          "type": "string",
+          "description": "Skip assembly, do binning. (Prel) A directory with multiple assembly files or a fasta file"
+        },
+        "ref_genomes": {
+          "type": "string",
+          "description": "A dir with fa  as reference genomes."
+        }
+      }
+    },
+    "pangenome_parameters": {
+      "title": "Pangenome parameters",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "mean_cov_threshold": {
+          "type": "integer",
+          "default": 20,
+          "description": "Min. mean coverage for a sample to match a pangenome",
+          "help_text": "The coverage is estimated based on a subset of one million reads from each read-file from a sample and extrapolated based on number of reads. In other words, this value determined the expected average minimum number of reads on each position in the pangenome."
+        },
+        "nr_samps_threshold": {
+          "type": "integer",
+          "default": 5,
+          "description": "Minimum number of matching samples for a pangenome to be considered for further analysis",
+          "help_text": "The minimum number of samples with good average expected coverage for a pangenome to be used for downstream analysis."
+        },
+        "min_med_cov": {
+          "type": "integer",
+          "default": 20,
+          "description": "Min. median coverage for a sample to a pangenome to be used",
+          "help_text": "Median coverage is based on the alignment of all of a samples reads to a pangenome. This value determines the minimum required median coverage and the downsampling ratio. Samples that pass the median coverage and breadth checks will be downsampled for even coverage between samples, and used to analyse variants within a pangenome."
+        },
+        "min_breadth": {
+          "type": "integer",
+          "default": 40,
+          "description": "Minimum breadth for a sample to a pangenome",
+          "help_text": "Breadth is based on the alignment of all of a samples reads to a pangenome. Samples that pass the median coverage and breadth checks will be downsampled for even coverage between samples, and used to analyse variants within a pangenome."
+        }
+      }
+    },
+    "pipeline_parameters": {
+      "title": "Pipeline parameters",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "project": {
+          "type": "string",
+          "help_text": "The name of your project. Creates a directory with this name, where results will be stored",
+          "description": "Project directory name"
+        },
+        "samples": {
+          "type": "string",
+          "help_text": "A tab-separated file with sample names in column 1, fastq file names in column 2 and readpair in column 3.",
+          "description": "Samples file",
+          "format": "file-path"
+        },
+        "fastq": {
+          "type": "string",
+          "help_text": "The path to the directory containing the raw fastq reads",
+          "description": "Fastq file directory",
+          "format": "directory-path"
+        },
+        "threads": {
+          "type": "integer",
+          "default": 12,
+          "description": "nr threads, default 12",
+          "help_text": "Assign how many threads the pipeline can use at a time"
+        }
+      },
+      "required": ["project", "samples", "fastq"]
+    },
+    "motu_creation": {
+      "title": "mOTU creation",
+      "type": "object",
+      "description": "Settings for mOTUlizer and taxonomy parser",
+      "default": "",
+      "properties": {
+        "MAGcomplete": {
+          "type": "integer",
+          "default": 70,
+          "description": "Min. completeness of high quality MAGs",
+          "help_text": "Decides which bins/genomes are used to build the mOTU in mOTUlizer. Lower quality bins can still be recruited to mOTUs."
+        },
+        "MAGcontam": {
+          "type": "integer",
+          "default": 5,
+          "description": "Max. contamination of high quality MAGs",
+          "help_text": "Decides which bins/genomes are used to build the mOTU in mOTUlizer. Lower quality bins can still be recruited to mOTUs."
+        },
+        "min_mOTU_MAGs": {
+          "type": "integer",
+          "default": 1,
+          "description": "Minimum amount of MAGs necessary for a mOTU to be used for further analysis",
+          "help_text": "Sets how many genomes need to be part of the same mOTU for that mOTU to get it's own directory in the results mOTUs directory and to be used for pangenome analysis.\nThis parameter currently takes the sum of MAGs and SUBs to a mOTU."
+        },
+        "taxSort": {
+          "type": "string",
+          "default": "root",
+          "description": "Decides wich way to sort bins before clustering. Can lead to parallell clustering computation.",
+          "help_text": "Options:\nroot: sends all bins to the clustering tool together.\nauto: finds the lowest taxonomic rank where at least 90% of bins have been given a classification.\nPossible taxonomic ranks: domain, phylum, class, order, family, genus and species."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/alternative_entrypoints"
+    },
+    {
+      "$ref": "#/definitions/pangenome_parameters"
+    },
+    {
+      "$ref": "#/definitions/pipeline_parameters"
+    },
+    {
+      "$ref": "#/definitions/motu_creation"
+    }
+  ]
+}
