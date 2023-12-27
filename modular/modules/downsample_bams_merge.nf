@@ -17,7 +17,7 @@ process downsample_bams_merge {
     '''    
     #Get total length of NBPs longer than 1000
     echo "Counting positions"
-    positions=$(grep -oP '(?<=length_).*(?=_cov)' !{pang_sqm}/results/01.*.fasta | awk '{ if( $1*1 >= 1000) {SUM += $1} } END { print SUM }' )
+    positions=$(awk 'BEGIN{i=0}; (length($0) >= 1000 ) {i=i+length($0)} END {print i}' !{pang_sqm}/results/01.*.fasta)
     
     #Create tmp bams
     echo "Creating tmp bams"
@@ -71,7 +71,6 @@ process downsample_bams_merge {
     
     #Merge bam-files that pass the check, if more than one bam in mergeable/ #*/ what to do if no files?
     #thoughts if at least one file in mergeable, create new fasta with only long contigs
-    #also, how to name the output?
     echo "Checking mergeable"
     if [ -z "$(ls -A !{pang_sqm}_mergeable)" ]; then
          echo "No sample fit the alignment criteria. Skipping further analysis for !{pang_sqm}"
