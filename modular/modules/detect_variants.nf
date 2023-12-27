@@ -4,7 +4,6 @@ Input: a pangenome/reference fasta file and a (preferably) downsampled and merge
 Output: A filtered vcf file.
 */
 process detect_variants {
-    debug true
     publishDir "${params.project}/pogenom/vcfs", mode: "copy"
     input:
     tuple(path(pangenome), path(bam))

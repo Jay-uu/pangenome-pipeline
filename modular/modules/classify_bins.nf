@@ -6,8 +6,8 @@ process classify_bins {
     publishDir "${params.project}/sqm_res", mode: "copy", pattern: "${sample.baseName}"
     input:
     path(sample)
-    path(fastq_dir)
     path(in_bins)
+    path(fastq_dir)
     output:
     path("${sample.baseName}", emit: sample_dir)
     path("${sample.baseName}/results/bins/*.contigs.fa", emit: bins)

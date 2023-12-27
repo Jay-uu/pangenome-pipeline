@@ -83,17 +83,14 @@ workflow provided_bins {
         fastq_dir
         bins_dir
     main:
-        classify_bins(samples_file, bins_dir, fastq_dir.first())
+        classify_bins(sample_file, bins_dir, fastq_dir.first())
     emit:
     	bins = classify_bins.out.bins
     	bintable = classify_bins.out.bintable
 
 }
 
-//Thoughts, I shouldn't have copies of the same processes, but instead run each workflow "that's needed". Meaning if I already have bins, I could skip the first one for example?
-//actually it seems like I can just create the channels and it will only run the processes if there's something there to run it with!
-//this would mean that you could mix raw data, assemblies, and bins I think. Wait, this won't work actually because we'll always have the things needed for fastq_to_bins
-// https://nextflow-io.github.io/patterns/conditional-process/
+
 workflow bins_mOTUs_pangenome {
     take:
         bins
@@ -212,7 +209,7 @@ workflow {
 	- The variant calling workflow
     */
     Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-    			.multiMap { dir -> format: to_bins: to_variants: dir }.set { fastq_chan }    
+    			.multiMap { it -> format: to_bins: to_variants: it }.set { fastq_chan }    
     //File with which fastq files belong to which samples. Tab delimited with sample-name, fastq file name and pair.
     Channel.fromPath(params.samples, type: "file", checkIfExists: true)
     			.multiMap { it -> to_format: to_bins: it }.set { sam_chan }
@@ -229,16 +226,15 @@ workflow {
     the map_and_detect_variants workflow.
     */
     if ( params.ref_genomes != null ) {
-        Channel.fromPath( ['{params.ref-genomes}/*.fa', '{params.ref-genomes}/*.fasta'],
-        checkIfExists: true ).multiMap { it -> core: NBPs: it }.set { ref-gens }
+        Channel.fromPath( "${params.ref_genomes}/*.{fasta, fa}" , type: "file", checkIfExists: true ).multiMap { it -> core: NBPs: it }.set { ref_gens }
         /*
         When using a reference genome we don't have core and consensus,
         therefore handling the reference as both.
         This means that the whole genome is used both for mapping a subset of the reads,
         and for the variance analysis.
         */
-        core_ch = ref-gens.core
-        NBPs_ch = ref-gens.NBPs   
+        core_ch = ref_gens.core
+        NBPs_ch = ref_gens.NBPs   
     }
     /*
     If no reference genome directory was provided, pangenomes will be constructed.
@@ -278,52 +274,9 @@ workflow {
     Creates VCF files. Will add so it also creates pogenom results.
     */
     map_and_detect_variants(fastq_chan.to_variants, single_samps.to_variants,
-    			    bins_mOTUs_pangenome.out.core_fasta, bins_mOTUs_pangenome.out.NBPs_fasta)
+    			    core_ch, NBPs_ch)
     	
     //It should be possible to add a message for when the pipeline finishes.
     
 }
-
-
-
-
-/* remove later:
-    	if ( params.assembly == null && params.bins == null ) {
-    	//if no assembly nor bins provided:    
- 
-    	fastq_to_bins(samples_files, fastq_dir.first())
-    	bins = fastq_to_bins.out.bins
-    	bintable = fastq_to_bins.out.bintable
-    	}
-    	//if params.assembly = file that exists
-    	if ( params.assembly != null && params.bins == null ) {
-    	//create channels and see if the files exist
-    	//assembly_to_bins()
-    	bins = assembly_to_bins.out.bins
-    	bintable = assembly_to_bins.out.bintable
-    	}
-    	//Expecting a path to a dir with dirs named after the samples
-    	if ( params.bins != null && params.assembly == null ) {
-    	//create channels, check if the dirs exist, and get name of dirs.
-    	//These dirs need to have the same names as the samples that were used to create them.
-    	Channel.fromPath('params.bins/*', type: "dir", checkIfExists: true)
-    		.map { [it.getSimpleName(), it] }
-		.set { bin_dirs }
-	
-	samples_files
-		.map { [it.getSimpleName(), it] }
-		.set { samples_files }
-    	
-    	//combine the right samples file with the right bin dir
-    	//and run SqueezeMeta
-    	bins_parsing(samples_files.combine(bin_dirs, by: 0), fastq_dir.first())
-    	bins = bins_parsing.out.bins
-    	bintable = bins_parsing.out.bintable
-   	}
-   	else {
-   	//throw an error here
-   	error "Error: Either provide a path to a directory with assemblies using -assembly, or with bins using -bins, or only proivde the fastq dir and .samples file."
-   	}
-
-*/
 

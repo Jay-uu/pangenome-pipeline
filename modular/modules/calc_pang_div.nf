@@ -2,8 +2,8 @@
 
 */
 process calc_pang_div {
-    debug true
     publishDir "${params.project}/pogenom/", mode: "copy"
+    errorStrategy "finish"
     input:
     tuple(val(pang_ID), path(vcf), path(gff), path(genome))
     output:

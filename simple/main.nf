@@ -49,7 +49,6 @@ sam_chan = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
 	- Formating the individual sample files
 	- Running SqueezeMeta for each sample.
 	- Subsampling
-	- Deciding which samples fit which pangenomes (maybe not, double check!!)
 	- Mapping reads to the pangenomes
 This creates four channels for the four different processes.
 */
@@ -593,6 +592,7 @@ Indexing the pangenomes to use for read mapping.
 Input is the directory with SuperPang output for a pangenome.
 Output is the same directory, all of the index files and the environment variable set to either the base pangenome name,
 or the base pangenome name + "_consensus" if there was no core genome.
+This is separate from map_subset, since each pangenome only needs to be indexed once but will likely have multiple samples mapped to it.
 */
 process index_pangenomes {
     input:
