@@ -28,7 +28,7 @@ process cov_to_pang_samples {
     import pandas as pd
     import glob
     
-    samps_file = !{samples_file}
+    samps_file = "!{samples_file}"
     cov_threshold = !{params.mean_cov_threshold}
     nr_samps_threshold = !{params.nr_samps_threshold}
     outdir = "samples"
