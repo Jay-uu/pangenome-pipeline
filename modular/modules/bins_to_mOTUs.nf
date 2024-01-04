@@ -5,14 +5,11 @@ Output is the name of the taxonomic classification of the bins (unless taxSort =
 a tsv with which bins belong to which mOTU, and the bintable file with quality data for the bins.
 */
 process bins_to_mOTUs {
-    /*the conda part might be removed later. If for example SuperPang gets updated to run with the newest version
-    of mOTUlizer this process doesn't need a separate environment */
-    conda 'bioconda::mOTUlizer=0.3.2'
     publishDir "${params.project}/mOTUs", mode: "copy"
     input:
     path(tax_dir)
     output:
-    tuple(env(group), path("*_mOTUs.tsv"), path("${tax_dir}/*.bintable"), emit: mOTUs_file) //maybe change name to better represent content
+    tuple(env(group), path("*_mOTUs.tsv"), path("${tax_dir}/*.bintable"), emit: mOTUs_tuple)
     path("*_similarities.txt", emit: simi_file)
     shell:
     '''

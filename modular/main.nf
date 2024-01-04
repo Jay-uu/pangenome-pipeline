@@ -66,10 +66,9 @@ include { calc_pang_div } from './modules/calc_pang_div.nf'
 
 workflow raw_to_bins {
     take:
-    	samples_files
-    	fastq_dir
-    
+    	samples_files    
     main:
+        fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
     	fastq_to_bins(samples_files, fastq_dir.first())
     emit:
     	bins = fastq_to_bins.out.bins
@@ -78,11 +77,11 @@ workflow raw_to_bins {
 }
 
 workflow provided_bins {
-    take:
-        sample_file
-        fastq_dir
-        bins_dir
     main:
+        sample_file = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
+        //there should be a check that there's fastas in the dir too, maybe in the workflow or the process?
+        bins_dir = Channel.fromPath(params.bins, type: "dir", checkIfExists: true)
+        fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
         classify_bins(sample_file, bins_dir, fastq_dir.first())
     emit:
     	bins = classify_bins.out.bins
@@ -117,13 +116,21 @@ workflow bins_mOTUs_pangenome {
     	Creating dirs for the mOTUs by sorting based on the mOTUlizer output,
     	so each mOTU directory has the correct bins.
     	*/
-    	create_mOTU_dirs(bins_to_mOTUs.out.mOTUs_file, all_bins.to_mOTU_dirs)
+    	create_mOTU_dirs(bins_to_mOTUs.out.mOTUs_tuple, all_bins.to_mOTU_dirs)
 
     	/*
     	Running SuperPang, creating pangenomes. Transpose makes it so that each mOTU from the same grouping within
     	the taxonomy selection will be sent individually to the process together with the matching bintable.
     	*/
     	mOTUs_to_pangenome(create_mOTU_dirs.out.transpose())
+    	
+    	/*
+    	FOR NOW, RUNNING CHECKM HERE BECAUSE THE INPUT NEEDS A DIR. WILL PROBABLY CHANGE THAT SO CHECKM CAN RUN WITH THE REF GENOME START TOO
+    	BUT WE HAVEN'T YET DECIDED WHICH CHECKM VERSION TO USE, SO I WON'T EDIT YET CAUSE THIS IS EASIER.
+    	*/
+    	mOTUs_to_pangenome.out.pangenome_dir.multiMap { dir -> to_checkm: to_checkm2: dir }.set { pang_dirs }
+    	checkm_pangenomes(pang_dirs.to_checkm)
+        checkm2_pangenomes(pang_dirs.to_checkm2)
     
     emit:
     	core_fasta = mOTUs_to_pangenome.out.core_fasta
@@ -133,18 +140,17 @@ workflow bins_mOTUs_pangenome {
 
 workflow map_and_detect_variants {
     take:
-    fastq_dir
     single_samples
     core_fasta
     NBPs_fasta
     
     main:
     //Going to mutliple processes
-    single_samples.multiMap { it -> to_subsamp: to_cov_pang: it }.set { single_samples }
-    fastq_dir.multiMap { it -> to_subsamp: to_pang_to_bams: it }.set { fastq_dir }
+    Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+    		.multiMap { it -> to_subsamp: to_pang_to_bams: it }.set { fastq_dir }
     
     //Concatenating fastqs and subsampling for later mapping for each singles sample
-    subsample_fastqs(single_samples.to_subsamp, fastq_dir.to_subsamp.first())
+    subsample_fastqs(single_samples, fastq_dir.to_subsamp.first())
     
     /*
     Index genomes for read mapping
@@ -159,7 +165,8 @@ workflow map_and_detect_variants {
     /*
     Using the coverage from the mapping, decides which reads "belong" to which pangenome and creates new .samples files
     */
-    cov_to_pang_samples(map_subset.out.coverage.collect(),single_samples.to_cov_pang.collect(), subsample_fastqs.out.readcount.collect())
+    sample_file = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
+    cov_to_pang_samples(map_subset.out.coverage.collect(),sample_file.first(), subsample_fastqs.out.readcount.collect())
 
     /*
     Create keys to match right samples file to right NBPs fasta (from same pangenome) as input to pang_to_bams.
@@ -208,18 +215,18 @@ workflow {
 	- Assembly (if starting from raw reads)
 	- The variant calling workflow
     */
-    Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-    			.multiMap { it -> format: to_bins: to_variants: it }.set { fastq_chan }    
+    fastq_chan = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+     
     //File with which fastq files belong to which samples. Tab delimited with sample-name, fastq file name and pair.
-    Channel.fromPath(params.samples, type: "file", checkIfExists: true)
-    			.multiMap { it -> to_format: to_bins: it }.set { sam_chan }
+    sam_chan = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
     
     /*Runs the process that creates individual samples files and creates two output channels:
+    Would like to find a way to not unneccesarily create the to_assembly channel, if assembly is skipped.
 	- For assembly
 	- for variant calling
     */
-    format_samples(sam_chan.to_format, fastq_chan.format)
-    format_samples.out.flatten().multiMap { it -> to_bins: to_variants: it }.set { single_samps }
+    format_samples(sam_chan, fastq_chan)
+    format_samples.out.flatten().multiMap { it -> to_assembly: to_variants: it }.set { single_samps }
     
     /*
     If the user provided a dir with reference genomes, the pipeline will only run 
@@ -242,9 +249,7 @@ workflow {
     else {
         //If bins were provided we don't need to do assembly, and only need the singles .samples files for the variant calling workflow.
         if ( params.bins != null ) {
-        bin_dir = Channel.fromPath(params.bins, type: "dir", checkIfExists: true)
-        //there should be a check that there's fastas in the dir too, maybe in the workflow or the process.
-        provided_bins(sam_chan.to_bins, fastq_chan.to_bins, bin_dir ) //need to test if the output looks as I want it.
+        provided_bins() //need to test if the output looks as I want it.
         bins_ch = provided_bins.out.bins
         bintable_ch = provided_bins.out.bintable
         }
@@ -253,7 +258,7 @@ workflow {
     	/*
     	Runs assembly and binning.
     	*/
-    	raw_to_bins(single_samps.to_bins, fastq_chan.to_bins)
+    	raw_to_bins(single_samps.to_assembly)
     	bins_ch = raw_to_bins.out.bins
         bintable_ch = raw_to_bins.out.bintable
     	}
@@ -273,7 +278,7 @@ workflow {
     variance analysis, by mapping the reads, estimating coverage and breadth, downsampling etc.
     Creates VCF files. Will add so it also creates pogenom results.
     */
-    map_and_detect_variants(fastq_chan.to_variants, single_samps.to_variants,
+    map_and_detect_variants(single_samps.to_variants,
     			    core_ch, NBPs_ch)
     	
     //It should be possible to add a message for when the pipeline finishes.

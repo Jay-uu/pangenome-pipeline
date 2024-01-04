@@ -19,7 +19,7 @@ process parse_taxonomies {
     import pandas as pd
     import shutil
     ranks = ["root","auto","domain", "phylum","class","order", "family","genus","species"]
-    rank_param = "!{params.taxSort}" #NF PARAM
+    rank_param = "!{params.taxSort}"
     rank_param = rank_param.lower() #allow the user to spell with big letters
     if rank_param not in ranks:
         raise Exception(f"The provided sorting rank is not valid. Please use a taxonomic rank from the following list {ranks}")
@@ -52,7 +52,7 @@ process parse_taxonomies {
     #making sure each rank column has either a classification or is unclassified
     rank_cols = (dict([[e,"Unclassified"] for e in ranks[2:]]))
     all_bintables.fillna(value=rank_cols, inplace=True)
-    #it's aslo possible for bins that were only classified at lower levels
+    #it's also possible for bins that were only classified at lower levels
     #to have example s__ instead of a species. This should be unclassified instead.
     tax_short = ["d__", "p__","c__","o__","f__","g__","s__"]
     all_bintables.replace(to_replace=tax_short, value="Unclassified", inplace=True)
@@ -81,7 +81,6 @@ process parse_taxonomies {
         print(f"Writing {group} to dirs")
         g = all_bintables[all_bintables[rank_param] == group]
         #check that the group has at least one bin of good enough quality for mOTUlizer. Otherwise skip.
-        #MIGHT BE REMOVED IF ANOTHER SOLUTION IS DECIDED
         if len(g.loc[(g["Completeness"] > !{params.MAGcomplete}) & (g["Contamination"] < !{params.MAGcontam})]) == 0:
             print(f"No {group} bin is good enough quality for clustering. Exlcuding from further analysis.")
         else:

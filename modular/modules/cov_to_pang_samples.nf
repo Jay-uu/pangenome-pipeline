@@ -16,7 +16,7 @@ process cov_to_pang_samples {
     publishDir "${params.project}/pangenomes", mode: "copy"
     input:
     path(coverage)
-    path(singles)
+    path(samples_file)
     path(readcounts)
     output:
     path("samples/*.tsv", emit: pang_cpm_cov)
@@ -28,6 +28,7 @@ process cov_to_pang_samples {
     import pandas as pd
     import glob
     
+    samps_file = !{samples_file}
     cov_threshold = !{params.mean_cov_threshold}
     nr_samps_threshold = !{params.nr_samps_threshold}
     outdir = "samples"
@@ -85,6 +86,7 @@ process cov_to_pang_samples {
 
     #create new .samples files for pangenomes that fit the coverage criteria
     print("Creating samples files for pangenomes that pass the thresholds.")
+    samples_df = pd.read_csv(samps_file, sep='\t', names=["sample","read", "pair"])
     for pang_id in cov_dic.keys():
         ovr_thresh = []
         for sample in cov_dic[pang_id].keys():
@@ -92,12 +94,9 @@ process cov_to_pang_samples {
             if cov_dic[pang_id][sample].item() >= cov_threshold:
                 ovr_thresh.append(sample)
         if len(ovr_thresh) >= nr_samps_threshold:
-            samp_df = pd.DataFrame()
-            for sample in ovr_thresh:
-                samples_file = pd.read_csv(f"{sample}.samples", sep='\t', names=["sample","read", "pair"])
-                samp_df = pd.concat((samples_file, samp_df))
             print(f"Creating new samples file for {pang_id}")
-            samp_df.to_csv(f"{outdir}/{pang_id}.samples", header=False, index=None, sep='\t')
+            new_samp_df = samples_df.query('sample in @ovr_thresh')
+            new_samp_df.to_csv(f"{outdir}/{pang_id}.samples", header=False, index=None, sep='\t')
             
     if len(glob.glob(f"{outdir}/*.samples")) < 1:
         raise Exception("It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --mean_cov_threshold and/or --nr_samps_threshold, or perhaps using more samples.")
