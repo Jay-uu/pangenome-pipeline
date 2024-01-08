@@ -2,8 +2,10 @@
 This process might be removed if we decide to use checkM instead
 */
 process checkm2_pangenomes {
-    publishDir "${params.project}/checkm_pangenomes", mode: "copy" //change after deciding whether to use checkm or checkm2
-    conda '/home/jay/mambaforge/envs/checkm2' //temporary until we decide which checkM version to use
+    publishDir "${params.project}/checkm_pangenomes", mode: "copy"
+    //temporary until we decide which checkM version to use
+    //conda '/home/jay/mambaforge/envs/checkm2'
+    conda '/crex/proj/fume/nobackup/private/jay/mamba_envs/checkm2'
     input:
     path(pangenome_dir)
     output:

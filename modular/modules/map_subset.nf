@@ -6,6 +6,7 @@ a string with the pangenome name, a string with the name of the sample and the r
 Output is the coverage information of how well the reads mapped to the genome.
 */
 process map_subset {
+    label "low_cpu"
     input:
     tuple(path(pangenome_dir),path(index), val(pang_id), val(sample_ID), path(sub_reads)) //use the combine operator on the channels in the workflow.
     output:

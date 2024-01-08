@@ -5,7 +5,7 @@ Input is all bins, and all bintables.
 Output is the new directories which contains bins and a tsv with completeness and contamination.
 */
 process parse_taxonomies {
-    label "medium_time" //maybe test if short_time could be reasonable for this
+    label "low_cpu"
     input:
     path(bins)
     path(all_bintables)
