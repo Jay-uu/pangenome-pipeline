@@ -5,7 +5,8 @@ Input is a tab delimited samples file and path to the directory with the raw rea
 Output is a tuple of the sample name and the two resulting concatenated subsample files.
 */
 process subsample_fastqs {
-    label "medium_time"
+    label "low_cpu"
+    tag "low_cpu"
     input:
     path(sample)
     path(fastq_dir)

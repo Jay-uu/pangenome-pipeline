@@ -9,6 +9,7 @@ See here: https://github.com/EnvGen/POGENOM/blob/master/Input_POGENOM/src/cov_bd
 */
 process downsample_bams_merge {
     label "medium_time"
+    tag "medium_time"
     input:
     path(pang_sqm)
     output:

@@ -3,7 +3,8 @@
 */
 process calc_pang_div {
     publishDir "${params.project}/pogenom/", mode: "copy"
-    errorStrategy "finish"
+    errorStrategy "ignore"
+    tag "no_label"
     input:
     tuple(val(pang_ID), path(vcf), path(gff), path(genome))
     output:

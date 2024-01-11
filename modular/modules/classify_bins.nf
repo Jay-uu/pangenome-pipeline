@@ -4,6 +4,7 @@ Output is the dir with all SqueezeMeta results, the bins, and the combined check
 */
 process classify_bins {
     publishDir "${params.project}/sqm_res", mode: "copy", pattern: "${sample.baseName}"
+    tag "no_label"
     input:
     path(sample)
     path(in_bins)

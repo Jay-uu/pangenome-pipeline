@@ -5,7 +5,8 @@ mOTU, and the bintable with bins quality data. Also takes the bins as input.
 Output is a tuple with the new mOTU directory and the bintable.
 */
 process create_mOTU_dirs {
-    label "short_time"
+    label "low_cpu"
+    tag "low_cpu"
     publishDir "${params.project}/mOTUs", mode: "copy", pattern: "${group}_mOTU_*"
     input:
     tuple(val(group), path(motus_file), path(bintable))
@@ -24,7 +25,6 @@ process create_mOTU_dirs {
     max_contam = !{params.max_contam} #nf param
     bintdf = pd.read_csv("!{bintable}", sep = '\t')
 
-    #ADD A CHECK ON THE CONTAM FILTER HERE.
     if max_contam < 0:
         raise Exception("The max_contam parameter needs to be a positive int or 0.")
 

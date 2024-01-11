@@ -5,6 +5,8 @@ Output: A filtered vcf file.
 */
 process detect_variants {
     publishDir "${params.project}/pogenom/vcfs", mode: "copy"
+    label "low_cpu"
+    tag "low_cpu"
     input:
     tuple(path(pangenome), path(bam))
     output:

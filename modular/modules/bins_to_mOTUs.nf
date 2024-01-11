@@ -7,6 +7,7 @@ a tsv with which bins belong to which mOTU, and the bintable file with quality d
 process bins_to_mOTUs {
     publishDir "${params.project}/mOTUs", mode: "copy"
     label "low_cpu"
+    tag "low_cpu"
     input:
     path(tax_dir)
     output:

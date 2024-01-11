@@ -7,6 +7,7 @@ Output is the coverage information of how well the reads mapped to the genome.
 */
 process map_subset {
     label "low_cpu"
+    tag "low_cpu"
     input:
     tuple(path(pangenome_dir),path(index), val(pang_id), val(sample_ID), path(sub_reads)) //use the combine operator on the channels in the workflow.
     output:
@@ -25,7 +26,7 @@ process map_subset {
     fi
     
     echo "Sorting bam files"
-    samtools sort tmp_alignment.bam -O BAM -o !{pang_id}_${reads_id}_alignment.bam --threads !{params.threads}
+    samtools sort tmp_alignment.bam -O BAM -o !{pang_id}_${reads_id}_alignment.bam --threads 1
     
     echo "Computing coverage"
     samtools coverage !{pang_id}_${reads_id}_alignment.bam -o !{pang_id}_${reads_id}_coverage.tsv

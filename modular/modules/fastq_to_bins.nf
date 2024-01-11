@@ -4,6 +4,7 @@ Output is the dir with all SqueezeMeta results, the bins, and the combined check
 */
 process fastq_to_bins {
     publishDir "${params.project}/sqm_res", mode: "copy", pattern: "${sample.baseName}"
+    tag "no_label"
     input:
     path(sample)
     path(fastq_dir)

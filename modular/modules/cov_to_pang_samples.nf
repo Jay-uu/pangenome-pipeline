@@ -12,7 +12,8 @@ Output:
        pang_samples: The new .samples files for the pangenomes.
 */
 process cov_to_pang_samples {
-    label "medium_time"
+    label "low_cpu"
+    tag "low_cpu"
     publishDir "${params.project}/pangenomes", mode: "copy"
     input:
     path(coverage)

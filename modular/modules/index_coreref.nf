@@ -5,6 +5,8 @@ Output is .
 This is separate from map_subset, since each pangenome only needs to be indexed once but will likely have multiple samples mapped to it.
 */
 process index_coreref {
+    label "low_cpu"
+    tag "low_cpu"
     input:
     path(fasta)
     output:

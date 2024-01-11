@@ -6,6 +6,7 @@ process checkm2_pangenomes {
     //temporary until we decide which checkM version to use
     //conda '/home/jay/mambaforge/envs/checkm2'
     conda '/crex/proj/fume/nobackup/private/jay/mamba_envs/checkm2'
+    tag "no_label"
     input:
     path(pangenome_dir)
     output:

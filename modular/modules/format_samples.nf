@@ -4,7 +4,8 @@ It also checks that the provided fastq-dir has the files specified in the sample
 Output is a list of all the individual samples files.
 */
 process format_samples {
-    label "short_time"
+    label "low_cpu"
+    tag "low_cpu"
     input:
     path(samples_file)
     path(fastq_dir)

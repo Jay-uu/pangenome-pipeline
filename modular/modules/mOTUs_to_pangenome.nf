@@ -7,6 +7,7 @@ This could possibly be changed to have different script parts, which would mean 
 */
 process mOTUs_to_pangenome {
     publishDir "${params.project}/", mode: "copyNoFollow"
+    tag "no_label"
     input:
     tuple(path(mOTU_dir), path(bintable))
     output:
@@ -34,7 +35,7 @@ process mOTUs_to_pangenome {
         with open("input.fa", "w") as fastas:
             fastas.write("\n".join(genomes))
         call(["SuperPang.py", "--fasta", "input.fa", "--output-dir", f"{pg_dir_name}/!{mOTU_dir}", "--header-prefix", f"!{mOTU_dir}",
-        "--output-as-file-prefix", "--nice-headers", "--debug"]) #====REMOVE DEBUG LATER======
+        "--output-as-file-prefix", "--nice-headers", "--threads", f"!{params.threads}", "--debug"]) #====REMOVE DEBUG LATER======
         #Check if core file is empty
         if os.stat(core_name).st_size == 0:
             print("Core genome file empty. Will use the consensus assembly for read mapping.")

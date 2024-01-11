@@ -6,6 +6,7 @@ Output is the new directories which contains bins and a tsv with completeness an
 */
 process parse_taxonomies {
     label "low_cpu"
+    tag "low_cpu"
     input:
     path(bins)
     path(all_bintables)
