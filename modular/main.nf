@@ -90,7 +90,7 @@ workflow provided_bins {
 }
 
 
-workflow bins_mOTUs_pangenome {
+workflow pangenome_assembly {
     take:
         bins
     	bintable
@@ -138,7 +138,7 @@ workflow bins_mOTUs_pangenome {
     
 }
 
-workflow map_and_detect_variants {
+workflow variant_calling {
     take:
     single_samples
     core_fasta
@@ -208,8 +208,6 @@ workflow map_and_detect_variants {
 workflow {
     //Maybe I should have a check for incompatible parameters? For example if both ref_genomes and bins were provided?
     
-    //RIGHT NOW I'M CREATING MORE CHANNELS THAN STRICTLY NEEDED. I THINK THIS DOESN'T AFFECT PERFORMANCE, BUT IT'S UGLY.
-    //THE OTHER SOLUTION IS TO USE THE SAME LINES IN SEVERAL OF THE IF-SECTIONS, WHICH IS ALSO UGLY. THINK ABOUT IT.
     /*The fastq_dir is needed for:
 	- Formating the individual sample files
 	- Assembly (if starting from raw reads)
@@ -265,10 +263,10 @@ workflow {
     	/*
     	This workflow will cluster bins, create pangenomes, and send out core and NBPs fasta files for the pangenomes.
     	*/
-    	bins_mOTUs_pangenome(bins_ch, bintable_ch)
+    	pangenome_assembly(bins_ch, bintable_ch)
     	
-    	core_ch = bins_mOTUs_pangenome.out.core_fasta
-    	NBPs_ch = bins_mOTUs_pangenome.out.NBPs_fasta
+    	core_ch = pangenome_assembly.out.core_fasta
+    	NBPs_ch = pangenome_assembly.out.NBPs_fasta
 
     }
     
@@ -278,8 +276,7 @@ workflow {
     variance analysis, by mapping the reads, estimating coverage and breadth, downsampling etc.
     Creates VCF files. Will add so it also creates pogenom results.
     */
-    map_and_detect_variants(single_samps.to_variants,
-    			    core_ch, NBPs_ch)
+    variant_calling(single_samps.to_variants, core_ch, NBPs_ch)
     	
     //It should be possible to add a message for when the pipeline finishes.
     
