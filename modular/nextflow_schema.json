@@ -67,6 +67,11 @@
                     "type": "integer",
                     "default": 5,
                     "description": "Maximum contamination for a MAG/bin to be used for pangenome creation"
+                },
+                "block_size": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Controls the RAM-usage for DIAMOND when read mapping."
                 }
             }
         },
