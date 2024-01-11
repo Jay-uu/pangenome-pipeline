@@ -8,8 +8,7 @@ The downsampling shell code is modified from POGENOM's Input_pogenom pipeline by
 See here: https://github.com/EnvGen/POGENOM/blob/master/Input_POGENOM/src/cov_bdrth_in_dataset.sh
 */
 process downsample_bams_merge {
-    label "medium_time"
-    tag "medium_time"
+    tag "no_label"
     input:
     path(pang_sqm)
     output:
@@ -29,7 +28,7 @@ process downsample_bams_merge {
         samtools view -Sbh -F 1024 -q 20 --threads !{params.threads} $bam > tmp_filtered.bam
         #filter for contigs over 1000 bases put reads aligning to them in tmp_bams
         #names of contigs longer than 1000 in first column, and the length of contig in second column
-        samtools idxstats tmp_filtered.bam | awk '$2 >= 1000 { print $0 }' > contigs.tsv
+        samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= 1000 { print $0 }' > contigs.tsv
         awk ' { print $1, 1, $2} ' contigs.tsv > contigs.bed
         #create tmp bams
         bam_ID=$(basename $bam .bam)
@@ -41,6 +40,7 @@ process downsample_bams_merge {
     #create mpileup files
     for bam in tmp_bams/*.bam;
     do
+        #mpileup command doesn't allow multithreading
         samtools mpileup -d 1000000 -Q 15 -a $bam > tmp.mpileup
     
         # ---- arguments
@@ -63,7 +63,7 @@ process downsample_bams_merge {
 
         #---selection of BAM files and subsample
         if (( $(echo "$breadth >= $minbreadth" | bc -l) )) && (( $(echo "$cov >= $mincov" | bc -l) )); then
-            echo "        Downsampling coverage to $mincov - Genome: $mag - Sample: $samplename "
+            echo "Downsampling coverage to $mincov - Genome: $mag - Sample: $samplename "
             limite=$(echo "scale=3; $mincov/$cov" | bc )
             samp=$(echo "scale=3; ($limite)+10" | bc)
             samtools view -Sbh --threads !{params.threads} -s $samp $bamfile | samtools sort -o !{pang_sqm}_mergeable/$outbamfile --threads !{params.threads}
@@ -79,8 +79,9 @@ process downsample_bams_merge {
         echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over 1000 bases."
         ls !{pang_sqm}_mergeable/*.bam > bamlist.txt
         samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{params.threads}
-        samtools idxstats !{pang_sqm}_merged.bam | awk '$2 >= 1000 { print $0 }' > long_contigs.tsv
+        samtools idxstats !{pang_sqm}_merged.bam --threads !{params.threads} | awk '$2 >= 1000 { print $0 }' > long_contigs.tsv
         awk '{ print $1 }' long_contigs.tsv > contig_names.tsv
+        #seqtk doesn't allow multithreading
         seqtk subseq !{pang_sqm}/results/01.*.fasta contig_names.tsv > !{pang_sqm}_long_contigs.fasta
     fi
     #cleanup step

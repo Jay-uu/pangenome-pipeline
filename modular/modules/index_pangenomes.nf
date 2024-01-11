@@ -28,6 +28,6 @@ process index_pangenomes {
     fi
     
     echo "Building index"
-    bowtie2-build $pang_file index
+    bowtie2-build $pang_file index --threads !{params.threads}
     '''
 }
