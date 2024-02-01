@@ -34,7 +34,7 @@ process mOTUs_to_pangenome {
         print("Enough genomes to run pangenome computation")
         with open("input.fa", "w") as fastas:
             fastas.write("\n".join(genomes))
-        call(["SuperPang.py", "--fasta", "input.fa", "--output-dir", f"{pg_dir_name}/!{mOTU_dir}", "--header-prefix", f"!{mOTU_dir}",
+        call(["SuperPang.py", "--fasta", "input.fa","--checkm", "!{bintable}", "--output-dir", f"{pg_dir_name}/!{mOTU_dir}", "--header-prefix", f"!{mOTU_dir}",
         "--output-as-file-prefix", "--nice-headers", "--threads", f"!{params.threads}", "--debug"]) #====REMOVE DEBUG LATER======
         #Check if core file is empty
         if os.stat(core_name).st_size == 0:
