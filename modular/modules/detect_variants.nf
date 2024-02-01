@@ -10,7 +10,7 @@ process detect_variants {
     input:
     tuple(path(pangenome), path(bam))
     output:
-    tuple(env(pang_ID), path("*_filtered.vcf"), optional: true, emit: filt_vcf)
+    tuple(env(pang_ID), path("*_unfiltered.vcf"), optional: true, emit: filt_vcf)
     path("*_samples.txt", emit: samps_txt)
     shell:
     '''
@@ -23,9 +23,10 @@ process detect_variants {
     samtools faidx !{pangenome} -o !{pangenome}.fai
     echo "Running freebayes"
     freebayes -f !{pangenome} -C 4 -p 1 --pooled-continuous --read-max-mismatch-fraction 0.05 --min-alternate-fraction 0.01 -q 15 --report-monomorphic !{bam} > ${pang_ID}_unfiltered.vcf
-    echo "Filtering vcf"
-    vcffilter -f 'QUAL > 20' ${pang_ID}_unfiltered.vcf > ${pang_ID}_filtered.vcf
-    vcfsamplenames ${pang_ID}_filtered.vcf > ${pang_ID}_samples.txt
+    #filtering done with the pogenom wrapper for now
+    #echo "Filtering vcf"
+    #vcffilter -f 'QUAL > 20' ${pang_ID}_unfiltered.vcf > ${pang_ID}_filtered.vcf
+    vcfsamplenames ${pang_ID}_unfiltered.vcf > ${pang_ID}_samples.txt
     echo "Done"
     '''
 }
