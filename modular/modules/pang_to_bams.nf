@@ -19,7 +19,10 @@ process pang_to_bams {
     '''
     echo "Running SqueezeMeta on pangenome/reference genome !{pang_fasta} to map reads."
     #skips binning, assembly and renaming since we already have these things.
+    #making a dir to be able to use -extbins flag, will make squeezemeta do some extra stuff!
+    mkdir extassembly
+    ln -s !{pang_fasta} extassembly/
     #Mapping reads with a minimum of 95% identity using bowtie2
-    SqueezeMeta.pl -m coassembly -p !{pang_ID} -f !{fastq_dir} -s !{samples} -extassembly !{pang_fasta} -t !{params.threads} --nobins --norename -b !{params.block_size} -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05" 
+    SqueezeMeta.pl -m coassembly -p !{pang_ID} -f !{fastq_dir} -s !{samples} -extbins extassembly -t !{params.threads} --nobins --norename -b !{params.block_size} -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05" 
     '''
 }
