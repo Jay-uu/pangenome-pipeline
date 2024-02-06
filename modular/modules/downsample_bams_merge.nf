@@ -14,10 +14,11 @@ process downsample_bams_merge {
     output:
     tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam"), optional: true, emit: ref_merged)
     shell:
-    '''    
-    #Get total length of NBPs longer than 1000
+    '''
+    cont_len=1000
+    #Get total length of NBPs longer than ${cont_len}
     echo "Counting positions"
-    positions=$(awk 'BEGIN{i=0}; (length($0) >= 1000 ) {i=i+length($0)} END {print i}' !{pang_sqm}/results/01.*.fasta)
+    positions=$(awk 'BEGIN{i=0}; (length($0) >= ${cont_len} ) {i=i+length($0)} END {print i}' !{pang_sqm}/results/01.*.fasta)
     
     #Create tmp bams
     echo "Creating tmp bams"
@@ -26,9 +27,9 @@ process downsample_bams_merge {
     do
         #Filter to select only paired reads (-f 2) and avoids optical duplicates (-F 1024)
         samtools view -Sbh -F 1024 -q 20 --threads !{params.threads} $bam > tmp_filtered.bam
-        #filter for contigs over 1000 bases put reads aligning to them in tmp_bams
-        #names of contigs longer than 1000 in first column, and the length of contig in second column
-        samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= 1000 { print $0 }' > contigs.tsv
+        #filter for contigs over ${cont_len} bases put reads aligning to them in tmp_bams
+        #names of contigs longer than ${cont_len} in first column, and the length of contig in second column
+        samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= ${cont_len} { print $0 }' > contigs.tsv
         awk ' { print $1, 1, $2} ' contigs.tsv > contigs.bed
         #create tmp bams
         bam_ID=$(basename $bam .bam)
@@ -76,10 +77,10 @@ process downsample_bams_merge {
     if [ -z "$(ls -A !{pang_sqm}_mergeable)" ]; then
          echo "No sample fit the alignment criteria. Skipping further analysis for !{pang_sqm}"
     else
-        echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over 1000 bases."
+        echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over ${cont_len} bases."
         ls !{pang_sqm}_mergeable/*.bam > bamlist.txt
         samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{params.threads}
-        samtools idxstats !{pang_sqm}_merged.bam --threads !{params.threads} | awk '$2 >= 1000 { print $0 }' > long_contigs.tsv
+        samtools idxstats !{pang_sqm}_merged.bam --threads !{params.threads} | awk '$2 >= ${cont_len} { print $0 }' > long_contigs.tsv
         awk '{ print $1 }' long_contigs.tsv > contig_names.tsv
         #seqtk doesn't allow multithreading
         seqtk subseq !{pang_sqm}/results/01.*.fasta contig_names.tsv > !{pang_sqm}_long_contigs.fasta
