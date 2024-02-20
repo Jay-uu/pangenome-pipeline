@@ -29,7 +29,8 @@ process downsample_bams_merge {
         samtools view -Sbh -F 1024 -q 20 --threads !{params.threads} $bam > tmp_filtered.bam
         #filter for contigs over ${cont_len} bases put reads aligning to them in tmp_bams
         #names of contigs longer than ${cont_len} in first column, and the length of contig in second column
-        samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= ${cont_len} { print $0 }' > contigs.tsv
+        samtools index tmp_filtered.bam
+        samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= ${cont_len} { print $0 }' | grep "core" > contigs.tsv
         awk ' { print $1, 1, $2} ' contigs.tsv > contigs.bed
         #create tmp bams
         bam_ID=$(basename $bam .bam)
