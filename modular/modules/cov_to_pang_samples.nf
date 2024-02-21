@@ -32,6 +32,7 @@ process cov_to_pang_samples {
     samps_file = "!{samples_file}"
     cov_threshold = !{params.mean_cov_threshold}
     nr_samps_threshold = !{params.nr_samps_threshold}
+    nr_subsamp = !{params.nr_subsamp}
     outdir = "samples"
     
     """
@@ -49,7 +50,7 @@ process cov_to_pang_samples {
         cov["totaldepth"] = cov.apply(lambda row : row.meandepth*row.contig_length, axis=1) #rounds to nearest int
         weigh_mean=(cov["totaldepth"].sum()/cov["contig_length"].sum())
         #expected average coverage: ((average/million reads)/million*) total number of reads per sample
-        weigh_mean_per_read = (weigh_mean/(1000000*nr_fqs))
+        weigh_mean_per_read = (weigh_mean/(nr_subsamp*nr_fqs))
         exp_cov = weigh_mean_per_read*tot_reads
         return weigh_mean_per_read, exp_cov
     
@@ -100,7 +101,7 @@ process cov_to_pang_samples {
             new_samp_df.to_csv(f"{outdir}/{pang_id}.samples", header=False, index=None, sep='\t')
             
     if len(glob.glob(f"{outdir}/*.samples")) < 1:
-        raise Exception("It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --mean_cov_threshold and/or --nr_samps_threshold, or perhaps using more samples.")
+        raise Exception("It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --mean_cov_threshold and/or --nr_samps_threshold, increasing how many reads are subsampled or perhaps using more samples.")
    
     /$
 }

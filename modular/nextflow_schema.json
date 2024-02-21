@@ -72,6 +72,12 @@
                     "type": "integer",
                     "default": 2,
                     "description": "Controls the RAM-usage for DIAMOND when read mapping."
+                },
+                "nr_subsamp": {
+                    "type": "integer",
+                    "default": 1000000,
+                    "description": "Number of reads to be subsampled from the raw fastq files",
+                    "help_text": "You can modify how many reads should be subsampled to then be used for mapping against the pangenomes/reference genomes to determine which samples have good coverage for that genome."
                 }
             }
         },

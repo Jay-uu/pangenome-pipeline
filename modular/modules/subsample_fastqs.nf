@@ -22,6 +22,8 @@ process subsample_fastqs {
     from subprocess import check_output
     import gzip
     import shutil
+
+    nr_subsamp = "!{params.nr_subsamp}"
     
     """
     A function which takes a list of fastq files and subsamples a million reads from the combined files.
@@ -34,7 +36,7 @@ process subsample_fastqs {
                 outfile.write(open("!{fastq_dir}"+"/"+f,"rb").read())
         #Subsampling
         with open(f"sub_{sample_ID}_{direction}.fq", "w") as subout:
-            call(["seqtk", "sample", "-s100", f"concat_{direction}.fq.gz", "1000000"], stdout = subout)
+            call(["seqtk", "sample", "-s100", f"concat_{direction}.fq.gz", nr_subsamp], stdout = subout)
         #Compressing
         with open(f"sub_{sample_ID}_{direction}.fq", "rb") as in_f, gzip.open(f"sub_{sample_ID}_{direction}.fq.gz", "wb") as out_f:
             shutil.copyfileobj(in_f, out_f)
