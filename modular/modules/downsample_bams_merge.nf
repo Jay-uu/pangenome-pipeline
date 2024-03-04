@@ -7,30 +7,40 @@ Output: Since there is a possibility that no bams fit the minimum coverage and b
 The downsampling shell code is modified from POGENOM's Input_pogenom pipeline by Anders Andersson and Luis F. Delgado
 See here: https://github.com/EnvGen/POGENOM/blob/master/Input_POGENOM/src/cov_bdrth_in_dataset.sh
 */
+//I NEED TO DOUBLE CHECK HERE. SHOULD THE MERGED BAM ONLY BE FROM CORE CONTIGS? NO I DONT THINK SO RIGHT... IS THAT WHAT IM DOING?
 process downsample_bams_merge {
     tag "no_label"
     input:
-    path(pang_sqm)
+    tuple(val(pang_id), path(pang_sqm), path(core_fasta))
     output:
     tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam"), optional: true, emit: ref_merged)
     shell:
     '''
     cont_len=1000
     #Get total length of NBPs longer than ${cont_len}
-    echo "Counting positions"
-    positions=$(awk 'BEGIN{i=0}; (length($0) >= ${cont_len} ) {i=i+length($0)} END {print i}' !{pang_sqm}/results/01.*.fasta)
-    
+    echo "Counting positions in the core fasta"
+    positions=$(awk 'BEGIN{i=0}; {(length($0) >= '${cont_len}')} {i=i+length($0)} END {print i}' !{core_fasta})
+    echo "The total length of NBPs longer than ${cont_len} in the core fasta is ${positions}"
     #Create tmp bams
     echo "Creating tmp bams"
     mkdir tmp_bams
     for bam in !{pang_sqm}/data/bam/*.bam;
     do
+	echo "Filtering ${bam} alignments for contig length and core contigs"
         #Filter to select only paired reads (-f 2) and avoids optical duplicates (-F 1024)
         samtools view -Sbh -F 1024 -q 20 --threads !{params.threads} $bam > tmp_filtered.bam
         #filter for contigs over ${cont_len} bases put reads aligning to them in tmp_bams
         #names of contigs longer than ${cont_len} in first column, and the length of contig in second column
         samtools index tmp_filtered.bam
-        samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= ${cont_len} { print $0 }' | grep "core" > contigs.tsv
+	#Checking if there's an actual core genome or singlemOTU one.
+	string='!{core_fasta}'
+	if [[ $string == *"singlemOTU"* ]]; then
+	   echo "Identified as a singlemOTU genome. Selecting all contigs over ${cont_len}"
+	   samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= '${cont_len}' { print $0 }' > contigs.tsv
+	else
+	   echo "Identified as core genome"
+	   samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= '${cont_len}' { print $0 }' | grep "core" > contigs.tsv
+	fi
         awk ' { print $1, 1, $2} ' contigs.tsv > contigs.bed
         #create tmp bams
         bam_ID=$(basename $bam .bam)
@@ -61,7 +71,7 @@ process downsample_bams_merge {
         non_zero=$(cut -f4 $mpileupfile | grep -cvw "0")
         breadth=$(echo $non_zero*100/$positions | bc -l )
 
-        echo "Genome:" $mag "- Sample:" $samplename "Median_coverage:" $cov " breadth %:" $breadth
+        echo "Genome:" $mag "- Sample:" $samplename "Median_coverage of core:" $cov " breadth %:" $breadth
 
         #---selection of BAM files and subsample
         if (( $(echo "$breadth >= $minbreadth" | bc -l) )) && (( $(echo "$cov >= $mincov" | bc -l) )); then
@@ -81,7 +91,7 @@ process downsample_bams_merge {
         echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over ${cont_len} bases."
         ls !{pang_sqm}_mergeable/*.bam > bamlist.txt
         samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{params.threads}
-        samtools idxstats !{pang_sqm}_merged.bam --threads !{params.threads} | awk '$2 >= ${cont_len} { print $0 }' > long_contigs.tsv
+        samtools idxstats !{pang_sqm}_merged.bam --threads !{params.threads} | awk '$2 >= '${cont_len}' { print $0 }' > long_contigs.tsv
         awk '{ print $1 }' long_contigs.tsv > contig_names.tsv
         #seqtk doesn't allow multithreading
         seqtk subseq !{pang_sqm}/results/01.*.fasta contig_names.tsv > !{pang_sqm}_long_contigs.fasta

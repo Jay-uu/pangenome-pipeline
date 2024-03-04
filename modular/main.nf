@@ -152,10 +152,11 @@ workflow variant_calling {
     //Concatenating fastqs and subsampling for later mapping for each singles sample
     subsample_fastqs(single_samples, fastq_dir.to_subsamp.first())
     
+    core_fasta.multiMap { it -> to_coreref: to_downsample: it }.set { core_fasta }
     /*
     Index genomes for read mapping
     */
-    index_coreref(core_fasta)
+    index_coreref(core_fasta.to_coreref)
 
     /*
     map subset reads to pangenome and get coverage information
@@ -188,7 +189,18 @@ workflow variant_calling {
     /*
     Checking the breadth and the coverage of bams on the pangenome/ref-genome. Downsampling to even coverage and merging into one bam-file.
     */
-    downsample_bams_merge(pang_to_bams.out.pang_sqm)
+    //ADD THE CORE FASTA HERE, AND MAYBE CHANGE OUTPUT HANDLING TO MATCH CORRECT PANGENOMES
+    pang_to_bams.out.pang_sqm
+		.map { [it.getSimpleName(), it] }
+		.set { pang_sqm }
+
+    core_fasta.to_downsample
+		.map { [it.getSimpleName(), it] }
+		.set { core_fasta.to_downsample }
+    
+    pang_sqm.combine(core_fasta.to_downsample, by: 0)).view()
+
+    downsample_bams_merge(pang_sqm.combine(core_fasta.to_downsample, by: 0))
 
     /*
     Running freebayes on the merged bam to get a filtered vcf file.
