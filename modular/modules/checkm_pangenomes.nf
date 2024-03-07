@@ -2,7 +2,8 @@
 Running checkm on pangenomes
 */
 process checkm_pangenomes {
-    publishDir "${params.project}/checkm_pangenomes", mode: "copy" //change after deciding whether to use checkm or checkm2
+    publishDir "${params.project}/mOTUs/!{pangenome_dir.baseName}/checkm", mode: "copy"
+    publishDir "${params.project}/checkm_pangenomes", mode: "copy" //remove when finalizing pipeline
     tag "no_label"
     input:
     path(pangenome_dir)

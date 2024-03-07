@@ -7,7 +7,6 @@ Output is a tuple with the new mOTU directory and the bintable.
 process create_mOTU_dirs {
     label "low_cpu"
     tag "low_cpu"
-    publishDir "${params.project}/mOTUs", mode: "copy", pattern: "${group}_mOTU_*"
     input:
     tuple(val(group), path(motus_file), path(bintable))
     path(bins)

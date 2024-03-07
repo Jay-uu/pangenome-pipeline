@@ -3,7 +3,8 @@ Takes a directory with bins and runs them through SqueezeMeta, resulting in taxo
 Output is the dir with all SqueezeMeta results, the bins, and the combined checkM and GTDB-Tk results.
 */
 process classify_bins {
-    publishDir "${params.project}/sqm_res", mode: "copy", pattern: "${sample.baseName}"
+    publishDir "${params.project}/bins/${sample.baseName}/", mode: "copy", pattern: "*.fa"
+    publishDir "${params.project}/bins/${sample.baseName}/", mode: "copy", pattern: "18.*.bintable"
     tag "no_label"
     input:
     path(sample)
@@ -11,7 +12,7 @@ process classify_bins {
     path(fastq_dir)
     output:
     path("${sample.baseName}", emit: sample_dir)
-    path("${sample.baseName}/results/bins/*.contigs.fa", emit: bins)
+    path("${sample.baseName}/results/bins/*.fa", emit: bins)
     path("${sample.baseName}/results/18.*.bintable", emit: bintable)
     shell:
     '''

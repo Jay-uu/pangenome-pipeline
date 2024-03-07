@@ -3,7 +3,8 @@ Takes raw reads and runs them through SqueezeMeta, resulting in bins.
 Output is the dir with all SqueezeMeta results, the bins, and the combined checkM and GTDB-Tk results.
 */
 process fastq_to_bins {
-    publishDir "${params.project}/sqm_res", mode: "copy", pattern: "${sample.baseName}"
+    publishDir "${params.project}/bins/${sample.baseName}/", mode: "copy", pattern: "*.fa"
+    publishDir "${params.project}/bins/${sample.baseName}/", mode: "copy", pattern: "18.*.bintable"
     tag "no_label"
     input:
     path(sample)
