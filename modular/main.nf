@@ -196,11 +196,12 @@ workflow variant_calling {
 
     core_fasta.to_downsample
 		.map { [it.getSimpleName(), it] }
-		.set { core_fasta.to_downsample }
+		.set { core_to_downsample }
     
-    pang_sqm.combine(core_fasta.to_downsample, by: 0)).view()
+    //pang_sqm.combine(core_to_downsample, by: 0).view()
 
     downsample_bams_merge(pang_sqm.combine(core_fasta.to_downsample, by: 0))
+    //downsample_bams_merge(pang_sqm)
 
     /*
     Running freebayes on the merged bam to get a filtered vcf file.
