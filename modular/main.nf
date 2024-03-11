@@ -70,6 +70,7 @@ workflow raw_to_bins {
     main:
         fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
     	fastq_to_bins(samples_files, fastq_dir.first())
+	//probably add subsample here
     emit:
     	bins = fastq_to_bins.out.bins
     	bintable = fastq_to_bins.out.bintable
@@ -81,7 +82,8 @@ workflow provided_bins {
         sample_file = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
         //there should be a check that there's fastas in the dir too, maybe in the workflow or the process?
         bins_dir = Channel.fromPath(params.bins, type: "dir", checkIfExists: true)
-        fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+        fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //should be subsampled fastqs provided by user
+	//if taxonomy and completeness already provided, don't need to run this.
         classify_bins(sample_file, bins_dir, fastq_dir.first())
     emit:
     	bins = classify_bins.out.bins
@@ -135,6 +137,7 @@ workflow pangenome_assembly {
     emit:
     	core_fasta = mOTUs_to_pangenome.out.core_fasta
     	NBPs_fasta = mOTUs_to_pangenome.out.NBPs_fasta
+	//maybe add filtered core (longer than threshold) as output here
     
 }
 
@@ -200,7 +203,7 @@ workflow variant_calling {
     
     //pang_sqm.combine(core_to_downsample, by: 0).view()
 
-    downsample_bams_merge(pang_sqm.combine(core_fasta.to_downsample, by: 0))
+    downsample_bams_merge(pang_sqm.combine(core_to_downsample, by: 0))
     //downsample_bams_merge(pang_sqm)
 
     /*
