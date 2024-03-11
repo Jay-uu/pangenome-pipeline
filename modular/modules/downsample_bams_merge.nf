@@ -33,13 +33,12 @@ process downsample_bams_merge {
         #names of contigs longer than ${cont_len} in first column, and the length of contig in second column
         samtools index tmp_filtered.bam
 	#Checking if there's an actual core genome or singlemOTU one.
-	string='!{core_fasta}'
-	if [[ $string == *"singlemOTU"* ]]; then
-	   echo "Identified as a singlemOTU genome. Selecting all contigs over ${cont_len}"
-	   samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= '${cont_len}' { print $0 }' > contigs.tsv
-	else
+	if grep -q "core" !{core_fasta}; then
 	   echo "Identified as core genome"
 	   samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= '${cont_len}' { print $0 }' | grep "core" > contigs.tsv
+	else
+	   echo "Identified as a singlemOTU or consensus genome. Selecting all contigs over ${cont_len}"
+	   samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= '${cont_len}' { print $0 }' > contigs.tsv
 	fi
         awk ' { print $1, 1, $2} ' contigs.tsv > contigs.bed
         #create tmp bams
