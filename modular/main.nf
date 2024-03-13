@@ -150,8 +150,8 @@ workflow variant_calling {
     main:
     //EDIT HERE
     //Going to mutliple processes
-    Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-    		.multiMap { it -> to_subsamp: to_pang_to_bams: it }.set { fastq_dir }
+    fastq_dir.to_pang_to_bams = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+    		//.multiMap { it -> to_subsamp: to_pang_to_bams: it }.set { fastq_dir }
     
     //EDIT HERE
     //Concatenating fastqs and subsampling for later mapping for each singles sample
