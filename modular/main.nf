@@ -148,12 +148,14 @@ workflow variant_calling {
     NBPs_fasta
     
     main:
+    //EDIT HERE
     //Going to mutliple processes
     Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
     		.multiMap { it -> to_subsamp: to_pang_to_bams: it }.set { fastq_dir }
     
+    //EDIT HERE
     //Concatenating fastqs and subsampling for later mapping for each singles sample
-    subsample_fastqs(single_samples, fastq_dir.to_subsamp.first())
+    //subsample_fastqs(single_samples, fastq_dir.to_subsamp.first())
     
     core_fasta.multiMap { it -> to_coreref: to_downsample: it }.set { core_fasta }
     /*
@@ -218,6 +220,16 @@ workflow variant_calling {
     */
     calc_pang_div(vcf_gff_ch)
     
+}
+
+workflow subsampling {
+    take:
+    single_samples
+    fastq_dir
+    main:
+    subsample_fastqs(single_samples, fastq_dir.first())
+    emit:
+
 }
 
 
