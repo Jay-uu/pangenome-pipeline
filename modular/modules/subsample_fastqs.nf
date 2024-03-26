@@ -7,13 +7,14 @@ Output is a tuple of the sample name and the two resulting concatenated subsampl
 process subsample_fastqs {
     label "low_cpu"
     tag "low_cpu"
-    publishDir "${params.project}/subsampled_reads", mode: "copy"
+    publishDir "${params.project}/subsampled_reads", mode: "copy", pattern: "*{.fq.gz,_readcount.txt}"
     input:
     path(sample)
     path(fastq_dir)
     output:
     tuple(val("${sample.baseName}"), path("sub_*.fq.gz"), emit: sub_reads)
     path("*_readcount.txt", emit: readcount)
+    path("*.subsampled.samples", emit: sample_file)
     shell:
     $/
     #!/usr/bin/env python
@@ -44,6 +45,8 @@ process subsample_fastqs {
         #Removing intermediate files
         os.remove(f"concat_{direction}.fq.gz")
         os.remove(f"sub_{sample_ID}_{direction}.fq")
+        #return the compressed subsampled file name
+        return f"sub_{sample_ID}_{direction}.fq.gz"
 
     fastq_files = os.listdir("!{fastq_dir}")
     sample_ID = Path("!{sample}").stem
@@ -70,10 +73,18 @@ process subsample_fastqs {
     #sorting the lists to make sure that matching fwds and revs are in the same index
     fwds = sorted(fwds)
     revs = sorted(revs)
-
-    concat_subtk_compress(fwds, "R1")
+    
+    #subsampling and concatenating
+    fwd_out = concat_subtk_compress(fwds, "R1")
+    rev_out = ""
     if len(revs) > 0:
-        concat_subtk_compress(revs, "R2")
+        rev_out = concat_subtk_compress(revs, "R2")
+        
+    #saving a new .samples file
+    with open(f"{sample_ID}.subsampled.samples", "w") as outfile:
+        outfile.write(f"{sample_ID}\t{fwd_out}\tpair1")
+        if rev_out:
+            outfile.write(f"\n{sample_ID}\t{rev_out}\tpair2")
     
     tot_reads = 0
     for fq in (fwds + revs):
