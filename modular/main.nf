@@ -33,6 +33,7 @@ if ( params.project.findAll { a -> badChars.any { a.contains(it) } } ) {
 	throw new Exception("Invalid project name. Special characters and whitespaces not allowed.")
 }
 
+//Gives a warning if project already exists
 if (workflow.resume == false) {
 	//Workflow was not resumed, checking project dir
 	Path projDir = new File(params.project).toPath()
@@ -41,6 +42,20 @@ if (workflow.resume == false) {
 	}
 }
 
+println "The subsample parameter is set to ${params.subsample}"
+if (params.subsample == false) {
+	if (params.bins == null) {
+	    throw new Exception("Skipping subsampling is only allowed for the bin entry. Please provide a directory with --bins <path/to/dir> or set --subsample <true>.")
+	}
+	if (params.readcount == null) {
+	    throw new Exception("When skipping subsampling containing files with the suffix <sample>_readcount.txt with readcounts need to be provided using --readcount <path/to/file>")
+	    //file format Sample  Nr_fastqs       Total_reads
+	}
+    }
+    
+if (params.bins != null && params.ref_genomes != null) {
+	throw new Exception("You can either provide pre-assembled bins or previously created reference genomes, but not both. Please either the --bins flag or the --ref_genomes flag. ")
+}
 // import modules
 //maybe later I will move the workflows into separate files and only import the necessary modules for that workflow
 include { format_samples } from './modules/format_samples'
@@ -64,16 +79,30 @@ include { calc_pang_div } from './modules/calc_pang_div.nf'
 //include {  } from './modules/'
 
 
-workflow raw_to_bins {
-    take:
-    	samples_files    
+workflow raw_to_bins {  
     main:
+    	//The dir with all the fastqs
+    	Channel.fromPath(params.fastq, type: "dir", checkIfExists: true).multiMap { it -> to_format: to_assembly: to_subsamp: it }.set { fastq_ch }
+     
+    	//File with which fastq files belong to which samples. Tab delimited with sample-name, fastq file name and pair.
+    	sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
+    
+    	/*Runs the process that creates individual samples files */
+    	format_samples(sam_ch, fastq_ch.to_format)
+    	format_samples.out.flatten().multiMap { it -> to_subsamp: to_assembly: it }.set { samples_files }
+    
         fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-    	fastq_to_bins(samples_files, fastq_dir.first())
-	//probably add subsample here
+    	fastq_to_bins(samples_files.to_assembly, fastq_ch.to_assembly.first())
+    	
+    	//Concatenating fastqs and subsampling for later mapping for each singles sample
+        subsample_fastqs(samples_files.to_subsamp, fastq_ch.to_subsamp.first())
+        subsample_fastqs.out.sample_file.collectFile(name: "${params.project}.subsampled.samples", newLine: true, storeDir: "${params.project}/subsampled_reads")
+
     emit:
-    	bins = fastq_to_bins.out.bins
-    	bintable = fastq_to_bins.out.bintable
+    	bins = fastq_to_bins.out.bins //channel: path(ID/results/bins/*.fa)
+    	bintable = fastq_to_bins.out.bintable //channel: path(ID/results/18.ID.bintable)
+    	sub_reads = subsample_fastqs.out.sub_reads //channel: [val("ID"), path("sub_ID.fq.gz")]
+    	readcounts = subsample_fastqs.out.readcount //channel: path(ID_readcount.txt)
     	
 }
 
@@ -85,17 +114,34 @@ workflow provided_bins {
         fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //should be subsampled fastqs provided by user
 	//if taxonomy and completeness already provided, don't need to run this.
         classify_bins(sample_file, bins_dir, fastq_dir.first())
+        
+        if ( params.subsample == true ) {
+            sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
+            fastq_ch = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+            format_samples(sam_ch, fastq_ch)
+            subsample_fastqs(format_samples.out.flatten(), fastq_ch.first())
+            sub_reads = subsample_fastqs.out.sub_reads
+    	    readcounts = subsample_fastqs.out.readcount
+    	    subsample_fastqs.out.sample_file.collectFile(name: "${params.project}.subsampled.samples", newLine: true, storeDir: "${params.project}/subsampled_reads")
+        }
+        else {
+            sub_reads = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //double check format of subsample_fastqs_out.sub_reads to make this match
+            readcounts = Channel.fromPath( "${params.readcount}/*_readcount.{txt, tsv}", type: "file", checkIfExists: true )
+        
+        }
     emit:
-    	bins = classify_bins.out.bins
-    	bintable = classify_bins.out.bintable
+    	bins = classify_bins.out.bins //channel: path(ID/results/bins/*.fa)
+    	bintable = classify_bins.out.bintable //channel: path(ID/results/18.ID.bintable)
+    	sub_reads = sub_reads //channel: [val("ID"), path("sub_ID.fq.gz")]
+    	readcounts = readcounts //channel: path(ID_readcount.txt)
 
 }
 
 
 workflow pangenome_assembly {
     take:
-        bins
-    	bintable
+        bins		//channel: path(bin.fa)
+    	bintable	//channel: path(sample.bintable)
     
     main:    
     	/*
@@ -135,78 +181,79 @@ workflow pangenome_assembly {
         checkm2_pangenomes(pang_dirs.to_checkm2)
     
     emit:
-    	core_fasta = mOTUs_to_pangenome.out.core_fasta
-    	NBPs_fasta = mOTUs_to_pangenome.out.NBPs_fasta
+    	core_fasta = mOTUs_to_pangenome.out.core_fasta //channel: path(pangenomes/${mOTU_dir}/*.core.fasta)
+    	NBPs_fasta = mOTUs_to_pangenome.out.NBPs_fasta //channel: path(pangenomes/${mOTU_dir}/*.NBPs.fasta)
 	//maybe add filtered core (longer than threshold) as output here
     
 }
 
-workflow variant_calling {
+workflow readmapping {
     take:
-    single_samples
-    core_fasta
-    NBPs_fasta
-    
+    single_samples	//channel: path(genome.samples)
+    core_fasta		//channel: path(core.fasta)
+    sub_reads		//channel: path()
+    readcounts		//channel: path()
     main:
-    //EDIT HERE
-    //Going to mutliple processes
-    fastq_dir.to_pang_to_bams = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-    		//.multiMap { it -> to_subsamp: to_pang_to_bams: it }.set { fastq_dir }
+   
+    //fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //CHANGE this to take sub_reads if it exists and fastq_dir if it doenst.
     
-    //EDIT HERE
-    //Concatenating fastqs and subsampling for later mapping for each singles sample
-    //subsample_fastqs(single_samples, fastq_dir.to_subsamp.first())
-    
-    core_fasta.multiMap { it -> to_coreref: to_downsample: it }.set { core_fasta }
     /*
     Index genomes for read mapping
     */
-    index_coreref(core_fasta.to_coreref)
-
+    index_coreref(core_fasta)
     /*
     map subset reads to pangenome and get coverage information
     */
-    map_subset(index_coreref.out.fasta_index_id.combine(subsample_fastqs.out.sub_reads))
-
+    map_subset(index_coreref.out.fasta_index_id.combine(sub_reads))
     /*
     Using the coverage from the mapping, decides which reads "belong" to which pangenome and creates new .samples files
     */
     sample_file = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
-    cov_to_pang_samples(map_subset.out.coverage.collect(),sample_file.first(), subsample_fastqs.out.readcount.collect())
+    cov_to_pang_samples(map_subset.out.coverage.collect(),sample_file.first(), readcounts.collect())
+    cov_to_pang_samples.out.pang_samples.flatten().map { [it.getSimpleName(), it] }.set { pang_samples }
+    emit:
+    pang_samples = pang_samples //channel: [val(ID), path(ID.samples)]
 
-    /*
-    Create keys to match right samples file to right NBPs fasta (from same pangenome) as input to pang_to_bams.
-    */
-    cov_to_pang_samples.out.pang_samples
-		.flatten()
-		.map { [it.getSimpleName(), it] }
-		.set { pang_samples }
+}
 
+workflow variant_calling {
+    take:
+    core_fasta		//channel: path(core.fasta)
+    NBPs_fasta		//channel: path(NBPs.fasta)
+    pang_samples	//channel: [val(ID), path(ID.samples)] or if subsample == false path(project.samples)
+    main:
+    //Going to mutliple processes
+    fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+    
     NBPs_fasta
 		.map { [it.getSimpleName(), it] }
 		.set { NBPs_fasta }
-
+    
     /*
     Using the generated samples files for the pangenome, the raw reads and the pangenome assembly to map reads using SqueezeMeta.
     */
-    pang_to_bams(pang_samples.combine(NBPs_fasta, by: 0), fastq_dir.to_pang_to_bams.first())
-
+    if ( params.subsample == true ) {
+    	pang_to_bams(NBPs_fasta.combine(pang_samples, by: 0), fastq_dir.first())
+	}
+    else {
+    	//Here the full samples file will be used for each fasta, since no subsampling was done to test which have good coverage
+    	pang_to_bams(NBPs_fasta.combine(pang_samples), fastq_dir.first())
+    }
     /*
     Checking the breadth and the coverage of bams on the pangenome/ref-genome. Downsampling to even coverage and merging into one bam-file.
     */
-    //ADD THE CORE FASTA HERE, AND MAYBE CHANGE OUTPUT HANDLING TO MATCH CORRECT PANGENOMES
     pang_to_bams.out.pang_sqm
 		.map { [it.getSimpleName(), it] }
 		.set { pang_sqm }
 
-    core_fasta.to_downsample
+    core_fasta
 		.map { [it.getSimpleName(), it] }
 		.set { core_to_downsample }
-    
-    //pang_sqm.combine(core_to_downsample, by: 0).view()
 
+    /*
+    Downsampling for even coverage and filtering for bams that pass coverage and breadth criteria.
+    */
     downsample_bams_merge(pang_sqm.combine(core_to_downsample, by: 0))
-    //downsample_bams_merge(pang_sqm)
 
     /*
     Running freebayes on the merged bam to get a filtered vcf file.
@@ -222,37 +269,9 @@ workflow variant_calling {
     
 }
 
-workflow subsampling {
-    take:
-    single_samples
-    fastq_dir
-    main:
-    subsample_fastqs(single_samples, fastq_dir.first())
-    emit:
-
-}
-
 
 workflow {
-    //Maybe I should have a check for incompatible parameters? For example if both ref_genomes and bins were provided?
-    
-    /*The fastq_dir is needed for:
-	- Formating the individual sample files
-	- Assembly (if starting from raw reads)
-	- The variant calling workflow
-    */
-    fastq_chan = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-     
-    //File with which fastq files belong to which samples. Tab delimited with sample-name, fastq file name and pair.
-    sam_chan = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
-    
-    /*Runs the process that creates individual samples files and creates two output channels:
-    Would like to find a way to not unneccesarily create the to_assembly channel, if assembly is skipped.
-	- For assembly
-	- for variant calling
-    */
-    format_samples(sam_chan, fastq_chan)
-    format_samples.out.flatten().multiMap { it -> to_assembly: to_variants: it }.set { single_samps }
+    println "Starting. Your results will be published at ${params.project}."
     
     /*
     If the user provided a dir with reference genomes, the pipeline will only run 
@@ -278,16 +297,20 @@ workflow {
         provided_bins() //need to test if the output looks as I want it.
         bins_ch = provided_bins.out.bins
         bintable_ch = provided_bins.out.bintable
+        sub_reads = provided_bins.out.sub_reads
+        readcounts = provided_bins.out.readcounts
         }
         
         else {
-    	/*
-    	Runs assembly and binning.
-    	*/
-    	raw_to_bins(single_samps.to_assembly)
-    	bins_ch = raw_to_bins.out.bins
-        bintable_ch = raw_to_bins.out.bintable
-    	}
+    	    /*
+    	    Runs assembly and binning.
+    	    */
+    	    raw_to_bins()
+    	    bins_ch = raw_to_bins.out.bins
+            bintable_ch = raw_to_bins.out.bintable
+            sub_reads = raw_to_bins.out.sub_reads
+            readcounts = raw_to_bins.out.readcounts
+    	    }
     	/*
     	This workflow will cluster bins, create pangenomes, and send out core and NBPs fasta files for the pangenomes.
     	*/
@@ -297,16 +320,22 @@ workflow {
     	NBPs_ch = pangenome_assembly.out.NBPs_fasta
 
     }
-    
-    /*
-    This workflow maps a subset of the reads to each pangenome to estimate which would pass the coverage checks.
-    The samples that pass the initial coverage checks are then used as samples for the pangenome/ref genome for
-    variance analysis, by mapping the reads, estimating coverage and breadth, downsampling etc.
-    Creates VCF files. Will add so it also creates pogenom results.
-    */
-    variant_calling(single_samps.to_variants, core_ch, NBPs_ch)
-    	
-    //It should be possible to add a message for when the pipeline finishes.
-    
+    if ( params.subsample == true ) {
+    	core_ch.multiMap { it -> to_map: to_variants: it }.set { core_ch }
+    	readmapping(core_ch.to_map, NBPs_ch, sub_reads, readcounts)
+    	/*
+    	Add wf description
+    	*/
+    	variant_calling(core_ch.to_variants, NBPs_ch, readmapping.out.pang_samples)
+    	}
+    else {
+    	//Probably not do read mapping, since that would just mean mapping everything multiple times.
+    	variant_calling(core_ch, NBPs_ch, Channel.fromPath(params.samples, type: "file", checkIfExists: true))
+    	}
 }
+
+    //It should be possible to add a message for when the pipeline finishes.
+    workflow.onComplete {
+        println "Your results can be found at ${params.project}. Have fun!"
+    }
 
