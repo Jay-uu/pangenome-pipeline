@@ -10,7 +10,7 @@ process pang_to_bams {
     publishDir "${params.project}/pangenomes/sqm", mode: "copy"
     tag "no_label"
     input:
-    tuple(val(pang_ID), path(samples), path(pang_fasta))
+    tuple(val(pang_ID), path(pang_fasta), path(samples))
     path(fastq_dir)
     output:
     path("${pang_ID}", type: "dir", emit: pang_sqm)
