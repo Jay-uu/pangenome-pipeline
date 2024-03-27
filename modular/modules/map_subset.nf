@@ -19,14 +19,14 @@ process map_subset {
     #check if there are sub*R2 reads, if yes:
     if stat --printf='' sub_*_R2.fq.gz 2>/dev/null; then
         echo "Running paired-end mode"
-        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz | samtools view -bS > tmp_alignment.bam
+        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz --threads !{task.cpus} | samtools view -bS --threads !{task.cpus} > tmp_alignment.bam
     else
         echo "Running unpaired reads mode"
-        bowtie2 -x index -U sub_*_R1.fq.gz | samtools view -bS > tmp_alignment.bam
+        bowtie2 -x index -U sub_*_R1.fq.gz --threads !{task.cpus} | samtools view -bS --threads !{task.cpus} > tmp_alignment.bam
     fi
     
     echo "Sorting bam files"
-    samtools sort tmp_alignment.bam -O BAM -o !{pang_id}_${reads_id}_alignment.bam --threads 1
+    samtools sort tmp_alignment.bam -O BAM -o !{pang_id}_${reads_id}_alignment.bam --threads !{task.cpus}
     
     echo "Computing coverage"
     samtools coverage !{pang_id}_${reads_id}_alignment.bam -o !{pang_id}_${reads_id}_coverage.tsv

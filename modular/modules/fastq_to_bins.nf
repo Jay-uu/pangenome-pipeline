@@ -16,7 +16,7 @@ process fastq_to_bins {
     '''
     echo "The sample file is !{sample.baseName} and the fastq dir is !{fastq_dir}"
     SAMPLE_ID="!{sample.baseName}"
-    SqueezeMeta.pl -m coassembly -f !{fastq_dir} -s !{sample} -p $SAMPLE_ID -binners maxbin,metabat2,concoct -t !{params.threads} --onlybins --gtdbtk
-    #SqueezeMeta.pl -m coassembly -f !{fastq_dir} -s !{sample} -p $SAMPLE_ID -binners metabat2 -t !{params.threads} --onlybins --gtdbtk
+    SqueezeMeta.pl -m coassembly -f !{fastq_dir} -s !{sample} -p $SAMPLE_ID -binners maxbin,metabat2,concoct -t !{task.cpus}--onlybins --gtdbtk
+    #SqueezeMeta.pl -m coassembly -f !{fastq_dir} -s !{sample} -p $SAMPLE_ID -binners metabat2 -t !{task.cpus} --onlybins --gtdbtk
     '''
 }

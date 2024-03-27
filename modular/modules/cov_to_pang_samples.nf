@@ -34,6 +34,7 @@ process cov_to_pang_samples {
     nr_samps_threshold = !{params.nr_samps_threshold}
     nr_subsamp = !{params.nr_subsamp}
     outdir = "samples"
+    #SUGGESTION, CHANGE SO THE OUTPUT HAS THE PROJECT NAME
     
     """
     Input: 

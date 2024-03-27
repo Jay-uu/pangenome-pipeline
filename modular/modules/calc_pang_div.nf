@@ -12,6 +12,6 @@ process calc_pang_div {
     shell:
     '''
     echo "Running pogenom for !{pang_ID}"
-    run-pogenom.py !{vcf} -f !{genome} --gff !{gff} -t !{params.threads} -p !{pang_ID} -o !{pang_ID}_out
+    run-pogenom.py !{vcf} -f !{genome} --gff !{gff} -t !{task.cpus} -p !{pang_ID} -o !{pang_ID}_out
     '''
 }

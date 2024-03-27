@@ -16,8 +16,8 @@ process checkm_pangenomes {
     installpath=$CONDA_PREFIX/SqueezeMeta/bin
 
     echo "Running checkM on all fastas in $pang_id"
-    PATH=$installpath:$installpath/pplacer:$installpath/hmmer:$PATH $installpath/checkm lineage_wf -t !{params.threads} -x fasta !{pangenome_dir} ${pang_id}_cM1
-    PATH=$installpath:$installpath/pplacer:$installpath/hmmer:$PATH $installpath/checkm qa -t !{params.threads} ${pang_id}_cM1/lineage.ms ${pang_id}_cM1 > ${pang_id}_cM1_summary.txt
+    PATH=$installpath:$installpath/pplacer:$installpath/hmmer:$PATH $installpath/checkm lineage_wf -t !{task.cpus} -x fasta !{pangenome_dir} ${pang_id}_cM1
+    PATH=$installpath:$installpath/pplacer:$installpath/hmmer:$PATH $installpath/checkm qa -t !{task.cpus} ${pang_id}_cM1/lineage.ms ${pang_id}_cM1 > ${pang_id}_cM1_summary.txt
     
     '''
 }
