@@ -28,22 +28,22 @@ process downsample_bams_merge {
     do
 	echo "Filtering ${bam} alignments for contig length and core contigs"
         #Filter to select only paired reads (-f 2) and avoids optical duplicates (-F 1024)
-        samtools view -Sbh -F 1024 -q 20 --threads !{params.threads} $bam > tmp_filtered.bam
+        samtools view -Sbh -F 1024 -q 20 --threads !{task.cpus} $bam > tmp_filtered.bam
         #filter for contigs over ${cont_len} bases put reads aligning to them in tmp_bams
         #names of contigs longer than ${cont_len} in first column, and the length of contig in second column
         samtools index tmp_filtered.bam
 	#Checking if there's an actual core genome or singlemOTU one.
 	if grep -q "core" !{core_fasta}; then
 	   echo "Identified as core genome"
-	   samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= '${cont_len}' { print $0 }' | grep "core" > contigs.tsv
+	   samtools idxstats tmp_filtered.bam --threads !{task.cpus} | awk '$2 >= '${cont_len}' { print $0 }' | grep "core" > contigs.tsv
 	else
 	   echo "Identified as a singlemOTU or consensus genome. Selecting all contigs over ${cont_len}"
-	   samtools idxstats tmp_filtered.bam --threads !{params.threads} | awk '$2 >= '${cont_len}' { print $0 }' > contigs.tsv
+	   samtools idxstats tmp_filtered.bam --threads !{task.cpus} | awk '$2 >= '${cont_len}' { print $0 }' > contigs.tsv
 	fi
         awk ' { print $1, 1, $2} ' contigs.tsv > contigs.bed
         #create tmp bams
         bam_ID=$(basename $bam .bam)
-        samtools view -b -L contigs.bed --threads !{params.threads} tmp_filtered.bam > tmp_bams/${bam_ID}.bam
+        samtools view -b -L contigs.bed --threads !{task.cpus} tmp_filtered.bam > tmp_bams/${bam_ID}.bam
     done
     
     mkdir -p !{pang_sqm}_mergeable
@@ -77,7 +77,7 @@ process downsample_bams_merge {
             echo "Downsampling coverage to $mincov - Genome: $mag - Sample: $samplename "
             limite=$(echo "scale=3; $mincov/$cov" | bc )
             samp=$(echo "scale=3; ($limite)+10" | bc)
-            samtools view -Sbh --threads !{params.threads} -s $samp $bamfile | samtools sort -o !{pang_sqm}_mergeable/$outbamfile --threads !{params.threads}
+            samtools view -Sbh --threads !{task.cpus} -s $samp $bamfile | samtools sort -o !{pang_sqm}_mergeable/$outbamfile --threads !{task.cpus}
         fi
     done
     
@@ -89,8 +89,8 @@ process downsample_bams_merge {
     else
         echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over ${cont_len} bases."
         ls !{pang_sqm}_mergeable/*.bam > bamlist.txt
-        samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{params.threads}
-        samtools idxstats !{pang_sqm}_merged.bam --threads !{params.threads} | awk '$2 >= '${cont_len}' { print $0 }' > long_contigs.tsv
+        samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{task.cpus}
+        samtools idxstats !{pang_sqm}_merged.bam --threads !{task.cpus}| awk '$2 >= '${cont_len}' { print $0 }' > long_contigs.tsv
         awk '{ print $1 }' long_contigs.tsv > contig_names.tsv
         #seqtk doesn't allow multithreading
         seqtk subseq !{pang_sqm}/results/01.*.fasta contig_names.tsv > !{pang_sqm}_long_contigs.fasta

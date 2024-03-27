@@ -23,6 +23,6 @@ process pang_to_bams {
     mkdir extassembly
     cp !{pang_fasta} extassembly/.
     #Mapping reads with a minimum of 95% identity using bowtie2
-    SqueezeMeta.pl -m coassembly -p !{pang_ID} -f !{fastq_dir} -s !{samples} -extbins extassembly -t !{params.threads} --nobins --norename -b !{params.block_size} -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05" 
+    SqueezeMeta.pl -m coassembly -p !{pang_ID} -f !{fastq_dir} -s !{samples} -extbins extassembly -t !{task.cpus} --nobins --norename -b !{params.block_size} -mapping_options "--ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05" 
     '''
 }

@@ -19,6 +19,6 @@ process bins_to_mOTUs {
     group="!{tax_dir}"
     group=${group%"_bins"}
     echo $group
-    mOTUlize.py --fnas !{tax_dir}/*.fa --checkm !{tax_dir}/*.bintable --MAG-completeness !{params.MAGcomplete} --MAG-contamination !{params.MAGcontam} --threads !{params.threads} --keep-simi-file ${group}_similarities.txt -o ${group}_mOTUs.tsv
+    mOTUlize.py --fnas !{tax_dir}/*.fa --checkm !{tax_dir}/*.bintable --MAG-completeness !{params.MAGcomplete} --MAG-contamination !{params.MAGcontam} --threads !{task.cpus} --keep-simi-file ${group}_similarities.txt -o ${group}_mOTUs.tsv
     '''
 }

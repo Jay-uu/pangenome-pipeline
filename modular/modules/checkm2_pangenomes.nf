@@ -17,6 +17,6 @@ process checkm2_pangenomes {
     '''
     pang_id=!{pangenome_dir.baseName}
     echo "Running checkM2 on !{pangenome_dir.baseName} fastas."
-    checkm2 predict --threads !{params.threads} --input !{pangenome_dir} -x fasta --output-directory ${pang_id}_cM2
+    checkm2 predict --threads !{task.cpus} --input !{pangenome_dir} -x fasta --output-directory ${pang_id}_cM2
     '''
 }
