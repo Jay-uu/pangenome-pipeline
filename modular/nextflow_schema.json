@@ -4,13 +4,6 @@
   "title": ". pipeline parameters",
   "description": "",
   "type": "object",
-  "properties": {
-    "help": {
-      "type": "string",
-      "help_text": "Information on how to use the pipeline",
-      "description": "Usage help"
-    }
-  },
   "definitions": {
     "alternative_entrypoints": {
       "title": "Alternative entrypoints",
@@ -25,7 +18,7 @@
         },
         "ref_genomes": {
           "type": "string",
-          "description": "A dir with fa  as reference genomes."
+          "description": "A dir with fa as reference genomes."
         }
       }
     },
@@ -141,8 +134,8 @@
         }
       }
     },
-    "new_group_1": {
-      "title": "New Group 1",
+    "subsampling": {
+      "title": "Subsampling",
       "type": "object",
       "description": "",
       "default": "",
@@ -155,6 +148,25 @@
         "readcount": {
           "type": "string",
           "description": "A tab-delimited file with sample, nr fastqs and total reads"
+        }
+      }
+    },
+    "general_parameters": {
+      "title": "General parameters",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "validationFailUnrecognisedParams": {
+          "type": "boolean",
+          "default": true,
+          "hidden": true,
+          "description": "Makes sure that the pipeline doesn't run if for example a param was misspelled."
+        },
+        "help": {
+          "type": "string",
+          "help_text": "Information on how to use the pipeline",
+          "description": "Usage help"
         }
       }
     }
@@ -173,7 +185,10 @@
       "$ref": "#/definitions/motu_creation"
     },
     {
-      "$ref": "#/definitions/new_group_1"
+      "$ref": "#/definitions/subsampling"
+    },
+    {
+      "$ref": "#/definitions/general_parameters"
     }
   ]
 }
