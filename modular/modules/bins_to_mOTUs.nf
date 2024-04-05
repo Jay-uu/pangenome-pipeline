@@ -5,6 +5,7 @@ Output is the name of the taxonomic classification of the bins (unless taxSort =
 a tsv with which bins belong to which mOTU, and the bintable file with quality data for the bins.
 */
 process bins_to_mOTUs {
+    //This process sometimes fails on UPPMAX due to lack of memory. Might implement something like this: https://www.nextflow.io/docs/latest/process.html#dynamic-computing-resources
     publishDir "${params.project}/mOTUs/simi_files", mode: "copy", pattern: "*_similarities.txt"
     label "low_cpu"
     tag "low_cpu"
