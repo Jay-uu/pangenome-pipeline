@@ -151,6 +151,19 @@
         }
       }
     },
+    "new_group_1": {
+      "title": "New Group 1",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "binners": {
+          "type": "string",
+          "default": "maxbin,metabat2,concoct",
+          "description": "might just be for testing"
+        }
+      }
+    },
     "general_parameters": {
       "title": "General parameters",
       "type": "object",
@@ -186,6 +199,9 @@
     },
     {
       "$ref": "#/definitions/subsampling"
+    },
+    {
+      "$ref": "#/definitions/new_group_1"
     },
     {
       "$ref": "#/definitions/general_parameters"
