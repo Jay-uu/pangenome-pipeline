@@ -98,7 +98,7 @@ else:
 #I might run into issues if there's a group present in one method and not the other
 #so using intersect
 print("Creating reference and query files for fastANI.")
-for group in pang_intersect:
+for group in motus_intersect:
     for run in to_comp:
         r = run.split("/")[-1]
         samps = glob.glob(f"{run}/mOTUs/pangenomes/*{group}*/*.core.fasta")
@@ -124,16 +124,19 @@ with open('mOTU_identities.txt','wb') as wfd:
 with open("pangenome_sizes.tsv", "w") as outfile:
     outfile.write("Pangenome\tLength\tContigs\n")
     for run in to_comp:
+        #print("Working on ", run)
         method = run.split("/")[-1]
         nbps = (glob.glob(f"{run}/mOTUs/pangenomes/*_mOTU_*/*.NBPs.fasta"))
         for bin in nbps:
+            #print("Getting length data for ", bin)
             #pang_name = bin.split("/")[-1]
             pang_name = bin
             all_contigs = list(SeqIO.parse(bin, "fasta"))
             nr_contigs = len(all_contigs)
             pang_length = 0
             for contig in all_contigs:
-                pang_length = pang_length + len(all_contigs[0].seq)
+                pang_length = pang_length + len(contig.seq)
+                #print("Pang_length is now: ", pang_length)
             outfile.write(pang_name + "\t" + str(pang_length) + "\t" + str(nr_contigs) + "\n")
             
     
@@ -239,6 +242,5 @@ new_binners = list(set(all_binners_motus) - set(ani_df["All_binners_pang_name"].
 output_df = output_df._append(create_row_by_method(new_binners, "All_binners"), ignore_index=True)
 output_df = output_df.fillna("NA")
 
-output_df.to_csv("binners_comparison.tsv", sep = '\t', index=False)
-                                
+output_df.to_csv("binners_comparison.tsv", sep = '\t', index=False)                             
 
