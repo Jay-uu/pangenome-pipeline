@@ -18,13 +18,19 @@ import glob
 #checkm_sum = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_20240110/checkm_pangenomes/combined_cm1_cm2_summary_20240110.tsv"
 #workdir = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_20240110"
 #motu_dir = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_20240110/mOTUs"
-projname = "loclat_20240202_all_binners_w_superpangcheckm"
-projdir = "/crex/proj/fume/nobackup/private/jay/test_pipeline/" + projname
+
+#projname = "loclat_20240202_all_binners_w_superpangcheckm"
+#projdir = "/crex/proj/fume/nobackup/private/jay/test_pipeline/" + projname
+
+projname = "loclat_202400426_100K_all_binners"
+projdir = "/domus/h1/jay/squeezemeta/pangenome-pipeline/results/" + projname
+
 checkm_sum = projdir + "/checkm_pangenomes/" + projname + "_combined_cm1_cm2_summary.tsv"
 workdir = projdir
 motu_dir = projdir + "/mOTUs"
 os.chdir(f'{workdir}')
 
+#%%
 for line in open(checkm_sum):
     if line.startswith('Bin Id'):
         continue
@@ -33,6 +39,8 @@ for line in open(checkm_sum):
     Bin_Id, cM1_Completeness, cM1_Contamination, cM2_Completeness, cM2_Contamination = line.strip().split("\t")
 
 assert False
+
+#%%
 checkm = pd.read_csv(checkm_sum, sep="\t")
 #filter res to only keep mOTUs of interest
 #dont want the ones with only a single genome (singlemOTU in name)
@@ -90,7 +98,8 @@ df['Completeness_group'] = pd.cut(df['cM2_Completeness'], bins=range(0, 121, 60)
 
 
 #%% Need to get all bins completeness, and then add those for a total mOTU bins completeness
-sqm_dirs = projdir + "/sqm_res/"
+#this code doesn't seem to work anymore because sqm no longer gives the bintable
+sqm_dirs = projdir + "/pangenomes/sqm/"
 
 bintable_list = []
 for file in glob.glob(sqm_dirs + "*/results/18.*bintable"):

@@ -18,8 +18,12 @@ import glob
 #checkm_sum = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_20240110/checkm_pangenomes/combined_cm1_cm2_summary_20240110.tsv"
 #workdir = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_20240110"
 #motu_dir = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_20240110/mOTUs"
-projname = "loclat_20240202_all_binners_w_superpangcheckm"
-projdir = "/crex/proj/fume/nobackup/private/jay/test_pipeline/" + projname
+#projname = "loclat_20240202_all_binners_w_superpangcheckm"
+#projdir = "/crex/proj/fume/nobackup/private/jay/test_pipeline/" + projname
+
+projname = "loclat_202400426_100K_all_binners"
+projdir = "/domus/h1/jay/squeezemeta/pangenome-pipeline/results/" + projname
+
 checkm_sum = projdir + "/checkm_pangenomes/" + projname + "_combined_cm1_cm2_summary.tsv"
 workdir = projdir
 motu_dir = projdir + "/mOTUs"
@@ -83,6 +87,16 @@ df['Completeness_group'] = pd.cut(df['cM2_Completeness'], bins=range(0, 121, 60)
 
 
 #%% Need to get all bins completeness, and then add those for a total mOTU bins completeness
+#CHANGE THIS PART TO NOT USE BINTABLES
+motulizer_dir = projdir + "/mOTUs/mOTUlizer/"
+#this might be a dict solution:
+#lvl 1 tax_group
+#lvl 2 mOTUs per tax group
+# lvl 3 bins
+# lvl 4 bin completeness
+
+
+
 sqm_dirs = projdir + "/sqm_res/"
 
 bintable_list = []

@@ -11,8 +11,14 @@ import glob
 import pandas as pd
 #path = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_20240110/checkm_pangenomes"
 #path = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_20240110/checkm_pangenomes"
-path = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_20240202_all_binners_w_superpangcheckm/checkm_pangenomes"
-projname = "loclat_20240202_all_binners_w_superpangcheckm"
+#path = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_20240202_all_binners_w_superpangcheckm/checkm_pangenomes"
+
+path = "/crex/proj/fume/nobackup/private/jay/test_pipeline/loclat_202400426_100K_all_binners/checkm_pangenomes"
+projname = "loclat_202400426_100K_all_binners"
+
+#path = "/domus/h1/jay/squeezemeta/pangenome-pipeline/results/loclat_202400426_100K_metabat/checkm_pangenomes"
+#projname = "loclat_202400426_100K_metabat"
+
 #checkm 1 files *_cM1_summary.txt
 #checkm2 *cM2/quality_report.tsv
 
