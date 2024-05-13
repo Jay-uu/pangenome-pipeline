@@ -15,7 +15,6 @@ process detect_variants {
     shell:
     '''
     pang_ID=$(basename !{pangenome} _long_contigs.fasta)
-    #why cant I find an option to specify threads...
     echo "Detecting variants in !{pangenome}"
     echo "Indexing !{bam}"
     samtools index !{bam}

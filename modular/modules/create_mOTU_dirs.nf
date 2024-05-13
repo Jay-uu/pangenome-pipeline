@@ -5,6 +5,8 @@ mOTU, and the bintable with bins quality data. Also takes the bins as input.
 Output is a tuple with the new mOTU directory and the bintable.
 */
 process create_mOTU_dirs {
+    //temporarily publishing this to make binners comparison easier. Will get updated to use symlinks
+    publishDir "${params.project}/mOTUs/mOTUlizer", mode: "symlink"
     label "low_cpu"
     tag "low_cpu"
     input:
