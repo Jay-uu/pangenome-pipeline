@@ -94,15 +94,27 @@ workflow raw_to_bins {
         fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
     	fastq_to_bins(samples_files.to_assembly, fastq_ch.to_assembly.first())
     	
+    	//Summarizing bintables into one file and only printing certain columns
+    	fastq_to_bins.out.bintable.multiMap { chan -> to_emit: to_summarize: chan }.set { ch_bintables }
+    	bintable_header = Channel.value( "Bin ID	Completeness	Contamination	Tax GTDB-Tk" )
+    	ch_bintables.to_summarize.collectFile(keepHeader: true, skip: 2)
+    			.splitCsv(header: true, skip: 1, sep: "\t")
+    			.map { row -> "${row.'Bin ID'}	${row.Completeness}	${row.Contamination}	${row.'Tax GTDB-Tk'}" }.set { bintable_rows }
+    	bintable_header.concat(bintable_rows).collectFile(name: "summarized_bintable.tsv", newLine: true, sort: false, storeDir: "${params.project}/bins")
+    	
     	//Concatenating fastqs and subsampling for later mapping for each singles sample
         subsample_fastqs(samples_files.to_subsamp, fastq_ch.to_subsamp.first())
-        subsample_fastqs.out.sample_file.collectFile(name: "${params.project}.subsampled.samples", newLine: true, storeDir: "${params.project}/subsampled_reads")
+        subsample_fastqs.out.sample_file.collectFile(name: "${params.project}.subsampled.samples", newLine: true, storeDir: "${params.project}/subsamples")
+        
+        //Mapping channel to be able to concatenate the readcounts and publish them, as well as send to next WF.
+        subsample_fastqs.out.readcount.multiMap { chan -> to_emit: to_concat: chan }.set { ch_readcounts }
+        ch_readcounts.to_concat.collectFile(keepHeader: true, name: "original_readcounts.tsv", storeDir: "${params.project}/subsamples")
 
     emit:
     	bins = fastq_to_bins.out.bins //channel: path(ID/results/bins/*.fa)
-    	bintable = fastq_to_bins.out.bintable //channel: path(ID/results/18.ID.bintable)
+    	bintable = ch_bintables.to_emit //channel: path(ID/results/18.ID.bintable)
     	sub_reads = subsample_fastqs.out.sub_reads //channel: [val("ID"), path("sub_ID.fq.gz")]
-    	readcounts = subsample_fastqs.out.readcount //channel: path(ID_readcount.txt)
+    	readcounts = ch_readcounts.to_emit //channel: path(ID_readcount.txt)
     	
 }
 
@@ -222,6 +234,8 @@ workflow variant_calling {
     NBPs_fasta		//channel: path(NBPs.fasta)
     pang_samples	//channel: [val(ID), path(ID.samples)] or if subsample == false path(project.samples)
     main:
+    //ADD A CHECK HERE ON WHETHER TO RUN THIS WF OR NOT
+    
     //Going to mutliple processes
     fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
     
