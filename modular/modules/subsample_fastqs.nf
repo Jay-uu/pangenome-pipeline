@@ -7,7 +7,7 @@ Output is a tuple of the sample name and the two resulting concatenated subsampl
 process subsample_fastqs {
     label "low_cpu"
     tag "low_cpu"
-    publishDir "${params.project}/subsampled_reads", mode: "copy", pattern: "*{.fq.gz,_readcount.txt}"
+    publishDir "${params.project}/subsamples/fastqs", mode: "copy", pattern: "*.fq.gz"
     input:
     path(sample)
     path(fastq_dir)
