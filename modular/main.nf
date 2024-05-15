@@ -138,7 +138,7 @@ workflow provided_bins {
         }
         else {
             sub_reads = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //double check format of subsample_fastqs_out.sub_reads to make this match
-            readcounts = Channel.fromPath( "${params.readcount}/*_readcount.{txt, tsv}", type: "file", checkIfExists: true )
+            readcounts = Channel.fromPath( "${params.readcount}/*_readcount*.{txt, tsv}", type: "file", checkIfExists: true )
         
         }
     emit:
@@ -205,10 +205,7 @@ workflow readmapping {
     core_fasta		//channel: path(core.fasta)
     sub_reads		//channel: path()
     readcounts		//channel: path()
-    main:
-   
-    //fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //CHANGE this to take sub_reads if it exists and fastq_dir if it doenst.
-    
+    main:    
     /*
     Index genomes for read mapping
     */
