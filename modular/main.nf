@@ -78,6 +78,22 @@ include { classify_bins } from './modules/classify_bins.nf'
 include { calc_pang_div } from './modules/calc_pang_div.nf'
 //include {  } from './modules/'
 
+def summarize_bintables(bintable_ch) {
+	bintable_header = Channel.value( "Bin ID	Completeness	Contamination	Tax GTDB-Tk" )
+	bintable_rows = bintable_ch.collectFile(keepHeader: true, skip: 2)
+    			.splitCsv(header: true, skip: 1, sep: "\t")
+    			.map { row -> "${row.'Bin ID'}	${row.Completeness}	${row.Contamination}	${row.'Tax GTDB-Tk'}" }
+    	bintable_header.concat(bintable_rows).collectFile(name: "summarized_bintable.tsv", newLine: true, sort: false, storeDir: "${params.project}/bins")
+}
+
+def concat_readcounts(readcounts_ch) {
+	readcounts_ch.collectFile(keepHeader: true, name: "original_readcounts.tsv", newLine: false, sort: false, storeDir: "${params.project}/subsamples")
+}
+
+def concat_subsamp_samples(sample_ch) {
+	sample_ch.collectFile(name: "${params.project}.subsampled.samples", newLine: true, storeDir: "${params.project}/subsamples")
+}
+
 
 workflow raw_to_bins {  
     main:
@@ -96,19 +112,15 @@ workflow raw_to_bins {
     	
     	//Summarizing bintables into one file and only printing certain columns
     	fastq_to_bins.out.bintable.multiMap { chan -> to_emit: to_summarize: chan }.set { ch_bintables }
-    	bintable_header = Channel.value( "Bin ID	Completeness	Contamination	Tax GTDB-Tk" )
-    	ch_bintables.to_summarize.collectFile(keepHeader: true, skip: 2)
-    			.splitCsv(header: true, skip: 1, sep: "\t")
-    			.map { row -> "${row.'Bin ID'}	${row.Completeness}	${row.Contamination}	${row.'Tax GTDB-Tk'}" }.set { bintable_rows }
-    	bintable_header.concat(bintable_rows).collectFile(name: "summarized_bintable.tsv", newLine: true, sort: false, storeDir: "${params.project}/bins")
-    	
+    	summarize_bintables(ch_bintables.to_summarize)
+
     	//Concatenating fastqs and subsampling for later mapping for each singles sample
         subsample_fastqs(samples_files.to_subsamp, fastq_ch.to_subsamp.first())
-        subsample_fastqs.out.sample_file.collectFile(name: "${params.project}.subsampled.samples", newLine: true, storeDir: "${params.project}/subsamples")
+        concat_subsamp_samples(subsample_fastqs.out.sample_file)
         
         //Mapping channel to be able to concatenate the readcounts and publish them, as well as send to next WF.
         subsample_fastqs.out.readcount.multiMap { chan -> to_emit: to_concat: chan }.set { ch_readcounts }
-        ch_readcounts.to_concat.collectFile(keepHeader: true, name: "original_readcounts.tsv", storeDir: "${params.project}/subsamples")
+        concat_readcounts(ch_readcounts.to_concat)
 
     emit:
     	bins = fastq_to_bins.out.bins //channel: path(ID/results/bins/*.fa)
@@ -126,15 +138,22 @@ workflow provided_bins {
         fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //should be subsampled fastqs provided by user
 	//if taxonomy and completeness already provided, don't need to run this.
         classify_bins(sample_file, bins_dir, fastq_dir.first())
+        classify_bins.out.bintable.multiMap { chan -> to_emit: to_summarize: chan }.set { ch_bintables }
+        summarize_bintables(ch_bintables.to_summarize)
         
         if ( params.subsample == true ) {
             sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
             fastq_ch = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+            
             format_samples(sam_ch, fastq_ch)
             subsample_fastqs(format_samples.out.flatten(), fastq_ch.first())
             sub_reads = subsample_fastqs.out.sub_reads
-    	    readcounts = subsample_fastqs.out.readcount
-    	    subsample_fastqs.out.sample_file.collectFile(name: "${params.project}.subsampled.samples", newLine: true, storeDir: "${params.project}/subsampled_reads")
+            
+            subsample_fastqs.out.readcount.multiMap { chan -> to_emit: to_concat: chan }.set { ch_readcounts }
+            concat_readcounts(ch_readcounts.to_concat)
+            
+    	    readcounts = ch_readcounts.to_emit
+    	    concat_subsamp_samples(subsample_fastqs.out.sample_file)
         }
         else {
             sub_reads = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //double check format of subsample_fastqs_out.sub_reads to make this match
@@ -143,7 +162,7 @@ workflow provided_bins {
         }
     emit:
     	bins = classify_bins.out.bins //channel: path(ID/results/bins/*.fa)
-    	bintable = classify_bins.out.bintable //channel: path(ID/results/18.ID.bintable)
+    	bintable = ch_bintables.to_emit //channel: path(ID/results/18.ID.bintable)
     	sub_reads = sub_reads //channel: [val("ID"), path("sub_ID.fq.gz")]
     	readcounts = readcounts //channel: path(ID_readcount.txt)
 
