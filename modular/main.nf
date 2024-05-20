@@ -239,6 +239,7 @@ workflow readmapping {
     sample_file = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
     cov_to_pang_samples(map_subset.out.coverage.collect(),sample_file.first(), readcounts.collect())
     cov_to_pang_samples.out.pang_samples.flatten().map { [it.getSimpleName(), it] }.set { pang_samples }
+    
     emit:
     pang_samples = pang_samples //channel: [val(ID), path(ID.samples)]
 

@@ -14,14 +14,17 @@ Output:
 process cov_to_pang_samples {
     label "low_cpu"
     tag "low_cpu"
-    publishDir "${params.project}/pangenomes", mode: "copy"
+    publishDir "${params.project}/mOTUs", mode: "copy", pattern: "${params.project}_*.tsv"
+    //publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}
+    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/${file(it)}"}
     input:
     path(coverage)
     path(samples_file)
     path(readcounts)
     output:
-    path("samples/*.tsv", emit: pang_cpm_cov)
-    path("samples/*.samples", emit: pang_samples)
+    path("${params.project}.*.tsv", emit: pang_cpm_cov)
+    path("${params.project}/*.samples", emit: pang_samples)
+    path("pangenome/*.tsv"), emit: individual_pang_cov
     shell:
     $/
     #!/usr/bin/env python
@@ -33,8 +36,7 @@ process cov_to_pang_samples {
     cov_threshold = !{params.mean_cov_threshold}
     nr_samps_threshold = !{params.nr_samps_threshold}
     nr_subsamp = !{params.nr_subsamp}
-    outdir = "samples"
-    #SUGGESTION, CHANGE SO THE OUTPUT HAS THE PROJECT NAME
+    outdir = "!{params.project}"
     
     """
     Input: 
@@ -74,19 +76,25 @@ process cov_to_pang_samples {
         cpm, exp_cov = get_weighted_mean(cov, nr_fqs, tot_reads)
         cpm_dic.setdefault(pang_id, {})[samp_name] = cpm
         cov_dic.setdefault(pang_id, {})[samp_name] = exp_cov
-        
-        
+    
     #convert dicts to dfs and save to file
     print("Saving coverage and CPM to files.")
-    os.makedirs(outdir)
     all_cov = pd.DataFrame.from_dict(cov_dic, orient="index")
     all_cov = all_cov.reset_index().rename(columns={"index": "Pangenome"})
-    all_cov.to_csv(f"{outdir}/pangenomes_cov.tsv", sep = '\t', index=False)
+    all_cov.to_csv(f"{outdir}.cov.tsv", sep = '\t', index=False) #add to have individual ones too
     
     all_cpm = pd.DataFrame.from_dict(cpm_dic, orient="index")
     all_cpm = all_cpm.reset_index().rename(columns={"index": "Pangenome"})
-    all_cov.to_csv(f"{outdir}/pangenomes_cpm.tsv", sep = '\t', index=False)
+    all_cpm.to_csv(f"{outdir}.cpm.tsv", sep = '\t', index=False) #add to have individual ones
+    
+    print("Making individual cov and cpm files.")
+    os.makedirs("pangenome")
+    for pang in all_cov["Pangenome"].unique():
+        motu = pang.split(".", 1)[0]
+        all_cov[all_cov["Pangenome"] == pang].to_csv(f"pangenome/{motu}.cov.tsv", sep="\t", index = False)
+        all_cpm[all_cpm["Pangenome"] == pang].to_csv(f"pangenome/{motu}.cpm.tsv", sep="\t", index = False)
 
+    os.makedirs(outdir)
     #create new .samples files for pangenomes that fit the coverage criteria
     print("Creating samples files for pangenomes that pass the thresholds.")
     samples_df = pd.read_csv(samps_file, sep='\t', names=["sample","read", "pair"])
