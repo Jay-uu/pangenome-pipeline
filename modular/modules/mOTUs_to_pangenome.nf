@@ -7,6 +7,7 @@ This could possibly be changed to have different script parts, which would mean 
 */
 process mOTUs_to_pangenome {
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome", mode: "copyNoFollow",  pattern: "pangenomes/${mOTU_dir}", saveAs: { filename -> "superpang/" }
+    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copyNoFollow", pattern: "bins"
     tag "no_label"
     input:
     tuple(path(mOTU_dir), path(bintable))
@@ -14,6 +15,7 @@ process mOTUs_to_pangenome {
     path("pangenomes/${mOTU_dir}", type: "dir", emit: pangenome_dir)
     path("pangenomes/${mOTU_dir}/*.NBPs.fasta", emit: NBPs_fasta)
     path("pangenomes/${mOTU_dir}/*.core.fasta", emit: core_fasta)
+    path("bins"), type: "dir", emit: motu_bins_links
     shell:
     $/
     
@@ -66,5 +68,14 @@ process mOTUs_to_pangenome {
         Path(symfile).symlink_to("!{mOTU_dir}" + ".singlemOTU.core.fasta")
     else:
         raise Exception(f"No fastas found in !{mOTU_dir}")
+        
+    #when published, link will be in project/mOTUs/results/motu_xxx/bins/symlink
+    #while bins are in project/bins/fastas/bin.fa
+    bins_rel_path = "./../../../../bins/fastas/"
+    os.makedirs("bins")
+    in_bins = os.listdir("!{mOTU_dir}")
+    for binfasta in in_bins:
+        os.symlink(bins_rel_path+binfasta, "bins/"+binfasta) 
+         
     /$
 }
