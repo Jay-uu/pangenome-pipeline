@@ -1,9 +1,15 @@
 /*
-
+This process runs Pogenom via a python wrapper.
+Input: 
+	Tuple of:
+	pang_ID string with name of the pan-/reference genome
+	vcf: VCF that has been downsampled to even coverage
+	gff: gff output from SqueezeMeta
+	genome: fasta file of pan-/reference genome.
+Output:
+	FST files from pogenom.
 */
 process calc_pang_div {
-//publishdir looks like this currently: mOTUs/results/c__Actinomycetia_mOTU_0/pangenome/pogenom/results/motu_name_out/*files*
-//files could probably be directly in results?
     publishDir "${params.project}/mOTUs/results/${pang_ID}/pangenome/pogenom", mode: "copy"
     errorStrategy "ignore"
     tag "no_label"
@@ -15,7 +21,6 @@ process calc_pang_div {
     '''
     echo "Running pogenom for !{pang_ID}"
     run-pogenom.py !{vcf} -f !{genome} --gff !{gff} -t !{task.cpus} -p !{pang_ID} -o results
-    
     #removing tmp dir
     rm -r results/tmp
     '''
