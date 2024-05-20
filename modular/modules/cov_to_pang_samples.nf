@@ -14,9 +14,8 @@ Output:
 process cov_to_pang_samples {
     label "low_cpu"
     tag "low_cpu"
-    publishDir "${params.project}/mOTUs", mode: "copy", pattern: "${params.project}_*.tsv"
-    //publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}
-    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/${file(it)}"}
+    publishDir "${params.project}/mOTUs", mode: "copy", pattern: "${params.project}.*.tsv"
+    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}
     input:
     path(coverage)
     path(samples_file)
