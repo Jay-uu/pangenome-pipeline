@@ -95,7 +95,7 @@ process subsample_fastqs {
         
     #write file with samp_name, nr fqs and tot_reads
     with open(f"{sample_ID}_readcount.txt", "w") as out:
-        out.write('Sample\tNr_fastqs\tTotal_reads\n')
-        out.write('\t'.join([f"{sample_ID}", str(fq_count), str(tot_reads)]))    
+        out.write("Sample\tNr_fastqs\tTotal_reads\n")
+        out.write("\t".join([f"{sample_ID}", str(fq_count), str(tot_reads)+"\n"]))    
     /$
 }
