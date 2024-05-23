@@ -4,14 +4,11 @@ Input: Tuple with: group, name of the taxonomic classification/prefix for filena
 mOTU, and the bintable with bins quality data. Also takes the bins as input.
 Output is a tuple with the new mOTU directory and the bintable.
 */
+//MAYBE ADD COMPLETENESS CHECK ALSO
 process create_mOTU_dirs {
     //temporarily publishing this to make binners comparison easier. Will get updated to use symlinks to the published bins
     //each motu_dir needs to be within ${params.project}/mOTUs/results/motu_name/bins/*.fa (symlinks) how?
     //publishDir "${params.project}/mOTUs/results/", mode: "symlink"
-    //ask nextflow peeps if there is a clean way to symlink to already published stuff in other directories
-    //textfile with expected paths to the bins in the publish directory, relative paths not absolute paths
-    //bins location:
-    // publishDir "${params.project}/bins/fastas", mode: "copy", pattern: "${sample.baseName}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }
     label "low_cpu"
     tag "low_cpu"
     input:
