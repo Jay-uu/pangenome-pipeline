@@ -218,9 +218,8 @@ workflow pangenome_assembly {
     
 }
 
-workflow readmapping {
+workflow match_samps_to_pang {
     take:
-    single_samples	//channel: path(genome.samples)
     core_fasta		//channel: path(core.fasta)
     sub_reads		//channel: path()
     readcounts		//channel: path()
@@ -250,9 +249,7 @@ workflow variant_calling {
     core_fasta		//channel: path(core.fasta)
     NBPs_fasta		//channel: path(NBPs.fasta)
     pang_samples	//channel: [val(ID), path(ID.samples)] or if subsample == false path(project.samples)
-    main:
-    //ADD A CHECK HERE ON WHETHER TO RUN THIS WF OR NOT
-    
+    main:    
     //Going to mutliple processes
     fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
     
@@ -323,9 +320,9 @@ workflow {
     If no reference genome directory was provided, pangenomes will be constructed.
     */
     else {
-        //If bins were provided we don't need to do assembly, and only need the singles .samples files for the variant calling workflow.
+        //If bins were provided we don't need to do assembly
         if ( params.bins != null ) {
-        provided_bins() //need to test if the output looks as I want it.
+        provided_bins()
         bins_ch = provided_bins.out.bins
         bintable_ch = provided_bins.out.bintable
         sub_reads = provided_bins.out.sub_reads
@@ -351,16 +348,16 @@ workflow {
     	NBPs_ch = pangenome_assembly.out.NBPs_fasta
 
     }
-    if ( params.subsample == true ) {
+    if ( params.subsample == true) {
     	core_ch.multiMap { it -> to_map: to_variants: it }.set { core_ch }
-    	readmapping(core_ch.to_map, NBPs_ch, sub_reads, readcounts)
+    	match_samps_to_pang(core_ch.to_map, sub_reads, readcounts)
     	/*
     	Add wf description
     	*/
-    	variant_calling(core_ch.to_variants, NBPs_ch, readmapping.out.pang_samples)
+    	variant_calling(core_ch.to_variants, NBPs_ch, match_samps_to_pang.out.pang_samples)
     	}
-    else {
-    	//Probably not do read mapping, since that would just mean mapping everything multiple times.
+    else if (params.force_variant_calling == true) {
+    	//Skipping read mapping, since that would just mean mapping everything (instead of a subset) multiple times.
     	variant_calling(core_ch, NBPs_ch, Channel.fromPath(params.samples, type: "file", checkIfExists: true))
     	}
 }
