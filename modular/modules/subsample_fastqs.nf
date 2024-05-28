@@ -1,9 +1,9 @@
 /*
-A process that subsamples a million reads from each raw reads file for a sample,
-and then concatenates paired subsampled reads.
+A process that subsamples a specififed number of reads from each sample
 Input is a tab delimited samples file and path to the directory with the raw reads.
 Output is a tuple of the sample name and the two resulting concatenated subsample files.
 */
+
 process subsample_fastqs {
     label "low_cpu"
     tag "low_cpu"
@@ -20,36 +20,28 @@ process subsample_fastqs {
     #!/usr/bin/env python
     import os
     from pathlib import Path
-    from subprocess import call
+    from subprocess import Popen
+    from subprocess import PIPE
+    from subprocess import run
     from subprocess import check_output
     import gzip
     import shutil
 
-    nr_subsamp = "!{params.nr_subsamp}"
+    NR_SUBSAMP = int("!{params.nr_subsamp}")
+    FASTQ_FILES = os.listdir("!{fastq_dir}")
+    SAMPLE_ID = Path("!{sample}").stem
     
     """
-    A function which takes a list of fastq files and subsamples a million reads from the combined files.
+    A function which takes a list of fastq files and subsamples a number of reads from the combined files.
     Result is a compressed fq file.
     """
-    def concat_subtk_compress(file_list, direction):
-        #concatenating
-        with open(f"concat_{direction}.fq.gz", "wb") as outfile:
-            for f in file_list:
-                outfile.write(open("!{fastq_dir}"+"/"+f,"rb").read())
-        #Subsampling
-        with open(f"sub_{sample_ID}_{direction}.fq", "w") as subout:
-            call(["seqtk", "sample", "-s100", f"concat_{direction}.fq.gz", nr_subsamp], stdout = subout)
-        #Compressing
-        with open(f"sub_{sample_ID}_{direction}.fq", "rb") as in_f, gzip.open(f"sub_{sample_ID}_{direction}.fq.gz", "wb") as out_f:
-            shutil.copyfileobj(in_f, out_f)
-        #Removing intermediate files
-        os.remove(f"concat_{direction}.fq.gz")
-        os.remove(f"sub_{sample_ID}_{direction}.fq")
-        #return the compressed subsampled file name
-        return f"sub_{sample_ID}_{direction}.fq.gz"
-
-    fastq_files = os.listdir("!{fastq_dir}")
-    sample_ID = Path("!{sample}").stem
+    def concat_subtk_compress(file_list, direction, nr_subsamp):
+        file_list = ["!{fastq_dir}/" + readfile for readfile in file_list]
+        with open(f"sub_{SAMPLE_ID}_{direction}.fq.gz", "w") as subout:
+            concat = Popen(["cat", (" ").join(file_list)], stdout=PIPE)
+            subtk = Popen(["seqtk", "sample", "-s100", "-", f"{nr_subsamp}"], stdin=concat.stdout, stdout=PIPE)
+            run(["gzip"], stdin=subtk.stdout, stdout=subout)
+        return f"sub_{SAMPLE_ID}_{direction}.fq.gz"  
     
     fwds = []
     revs = []
@@ -62,7 +54,7 @@ process subsample_fastqs {
             if len(fields) < 3:
                 raise Exception(f"Missing columns or wrong delimiter on line: {line}")
             sample, filename, pair, *_ = fields
-            if filename not in fastq_files:
+            if filename not in FASTQ_FILES:
                 raise Exception(f"{filename} not found in !{fastq_dir}")
             if pair == "pair1":
                 fwds.append(filename)
@@ -74,28 +66,34 @@ process subsample_fastqs {
     fwds = sorted(fwds)
     revs = sorted(revs)
     
-    #subsampling and concatenating
-    fwd_out = concat_subtk_compress(fwds, "R1")
-    rev_out = ""
-    if len(revs) > 0:
-        rev_out = concat_subtk_compress(revs, "R2")
-        
-    #saving a new .samples file
-    with open(f"{sample_ID}.subsampled.samples", "w") as outfile:
-        outfile.write(f"{sample_ID}\t{fwd_out}\tpair1")
-        if rev_out:
-            outfile.write(f"\n{sample_ID}\t{rev_out}\tpair2")
-    
     tot_reads = 0
     for fq in (fwds + revs):
         print(f"Counting reads in {fq}")
         reads_bases = check_output(["seqtk", "size",f"!{fastq_dir}/{fq}"], text=True)
         reads = int(reads_bases.split()[0]) #0 is nr reads, 1 is nr nucleotides
         tot_reads = tot_reads + reads
+      
+    if tot_reads < NR_SUBSAMP:
+        print(f"Less reads available than requested subsampling. Subsampling {tot_reads} number of reads instead.")
+        NR_SUBSAMP = tot_reads
+    
+    #subsampling and concatenating
+    rev_out = ""
+    #checking if we have reverse reads first to set the subsampling from each file to the correct number
+    if len(revs) > 0:
+        NR_SUBSAMP = NR_SUBSAMP/2
+        rev_out = concat_subtk_compress(revs, "R2", NR_SUBSAMP)
+    fwd_out = concat_subtk_compress(fwds, "R1", NR_SUBSAMP)
+        
+    #saving a new .samples file
+    with open(f"{SAMPLE_ID}.subsampled.samples", "w") as outfile:
+        outfile.write(f"{SAMPLE_ID}\t{fwd_out}\tpair1")
+        if rev_out:
+            outfile.write(f"\n{SAMPLE_ID}\t{rev_out}\tpair2")
         
     #write file with samp_name, nr fqs and tot_reads
-    with open(f"{sample_ID}_readcount.txt", "w") as out:
+    with open(f"{SAMPLE_ID}_readcount.txt", "w") as out:
         out.write("Sample\tNr_fastqs\tTotal_reads\n")
-        out.write("\t".join([f"{sample_ID}", str(fq_count), str(tot_reads)+"\n"]))    
+        out.write("\t".join([f"{SAMPLE_ID}", str(fq_count), str(tot_reads)+"\n"]))    
     /$
 }

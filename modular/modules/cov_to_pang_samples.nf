@@ -31,11 +31,11 @@ process cov_to_pang_samples {
     import pandas as pd
     import glob
     
-    samps_file = "!{samples_file}"
-    cov_threshold = !{params.mean_cov_threshold}
-    nr_samps_threshold = !{params.nr_samps_threshold}
-    nr_subsamp = !{params.nr_subsamp}
-    outdir = "!{params.project}"
+    SAMPS_FILE = "!{samples_file}"
+    COV_THRESHOLD = !{params.mean_cov_threshold}
+    NR_SAMPS_THRESHOLD = !{params.nr_samps_threshold}
+    NR_SUBSAMP = !{params.nr_subsamp}
+    OUTDIR = "!{params.project}"
     
     """
     Input: 
@@ -45,16 +45,15 @@ process cov_to_pang_samples {
     Returns the weighted mean coverage per read, and the expected average
     coverage for all the reads of that sample to the pangenome.
     """
-    def get_weighted_mean(cov, nr_fqs, tot_reads):
+    def get_weighted_mean(cov, nr_fqs, tot_reads, nr_subsamp):
         #meandepth is the mean depth of coverage over that contig
         #endpos-startpos=contig length
         cov["contig_length"] = cov.apply(lambda row : (row.endpos - row.startpos)+1, axis=1)
         cov["totaldepth"] = cov.apply(lambda row : row.meandepth*row.contig_length, axis=1) #rounds to nearest int
         weigh_mean=(cov["totaldepth"].sum()/cov["contig_length"].sum())
-        #expected average coverage: ((average/million reads)/million*) total number of reads per sample
-        weigh_mean_per_read = (weigh_mean/(nr_subsamp*nr_fqs))
-        exp_cov = weigh_mean_per_read*tot_reads
-        return weigh_mean_per_read, exp_cov
+        CovPM = weigh_mean*1000000/nr_subsamp
+        exp_cov = CovPM*tot_reads/nr_subsamp
+        return CovPM, exp_cov
     
     count_files = glob.glob("*_readcount.txt")
     readcount = pd.DataFrame()
@@ -72,7 +71,12 @@ process cov_to_pang_samples {
         cov = pd.read_csv(file, sep="\t")
         nr_fqs = readcount[readcount["Sample"]==samp_name]["Nr_fastqs"].item()
         tot_reads = readcount[readcount["Sample"]==samp_name]["Total_reads"].item()
-        cpm, exp_cov = get_weighted_mean(cov, nr_fqs, tot_reads)
+        if NR_SUBSAMP > tot_reads:
+            print(f"Requested subsampling more than available reads for sample. Total reads: {tot_reads} used for subsampling and cov estimation instead.")
+            nr_subsamp = tot_reads
+        else:
+            nr_subsamp = NR_SUBSAMP
+        cpm, exp_cov = get_weighted_mean(cov, nr_fqs, tot_reads, nr_subsamp)
         cpm_dic.setdefault(pang_id, {})[samp_name] = cpm
         cov_dic.setdefault(pang_id, {})[samp_name] = exp_cov
     
@@ -80,11 +84,11 @@ process cov_to_pang_samples {
     print("Saving coverage and CPM to files.")
     all_cov = pd.DataFrame.from_dict(cov_dic, orient="index")
     all_cov = all_cov.reset_index().rename(columns={"index": "Pangenome"})
-    all_cov.to_csv(f"{outdir}.cov.tsv", sep = '\t', index=False) #add to have individual ones too
+    all_cov.to_csv(f"{OUTDIR}.cov.tsv", sep = '\t', index=False) #add to have individual ones too
     
     all_cpm = pd.DataFrame.from_dict(cpm_dic, orient="index")
     all_cpm = all_cpm.reset_index().rename(columns={"index": "Pangenome"})
-    all_cpm.to_csv(f"{outdir}.cpm.tsv", sep = '\t', index=False) #add to have individual ones
+    all_cpm.to_csv(f"{OUTDIR}.cpm.tsv", sep = '\t', index=False) #add to have individual ones
     
     print("Making individual cov and cpm files.")
     os.makedirs("pangenome")
@@ -93,22 +97,22 @@ process cov_to_pang_samples {
         all_cov[all_cov["Pangenome"] == pang].to_csv(f"pangenome/{motu}.cov.tsv", sep="\t", index = False)
         all_cpm[all_cpm["Pangenome"] == pang].to_csv(f"pangenome/{motu}.cpm.tsv", sep="\t", index = False)
 
-    os.makedirs(outdir)
+    os.makedirs(OUTDIR)
     #create new .samples files for pangenomes that fit the coverage criteria
     print("Creating samples files for pangenomes that pass the thresholds.")
-    samples_df = pd.read_csv(samps_file, sep='\t', names=["sample","read", "pair"])
+    samples_df = pd.read_csv(SAMPS_FILE, sep='\t', names=["sample","read", "pair"])
     for pang_id in cov_dic.keys():
         ovr_thresh = []
         for sample in cov_dic[pang_id].keys():
             #print(f"Checking {sample} coverage on {pang_id}")
-            if cov_dic[pang_id][sample].item() >= cov_threshold:
+            if cov_dic[pang_id][sample].item() >= COV_THRESHOLD:
                 ovr_thresh.append(sample)
-        if len(ovr_thresh) >= nr_samps_threshold:
+        if len(ovr_thresh) >= NR_SAMPS_THRESHOLD:
             print(f"Creating new samples file for {pang_id}")
             new_samp_df = samples_df.query('sample in @ovr_thresh')
-            new_samp_df.to_csv(f"{outdir}/{pang_id}.samples", header=False, index=None, sep='\t')
+            new_samp_df.to_csv(f"{OUTDIR}/{pang_id}.samples", header=False, index=None, sep='\t')
             
-    if len(glob.glob(f"{outdir}/*.samples")) < 1:
+    if len(glob.glob(f"{OUTDIR}/*.samples")) < 1:
         raise Exception("It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --mean_cov_threshold and/or --nr_samps_threshold, increasing how many reads are subsampled or perhaps using more samples.")
    
     /$

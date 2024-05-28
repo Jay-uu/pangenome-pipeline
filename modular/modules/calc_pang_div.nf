@@ -22,6 +22,6 @@ process calc_pang_div {
     echo "Running pogenom for !{pang_ID}"
     run-pogenom.py !{vcf} -f !{genome} --gff !{gff} -t !{task.cpus} -p !{pang_ID} -o results
     #removing tmp dir
-    rm -r results/tmp
+    rm -r results/temp
     '''
 }
