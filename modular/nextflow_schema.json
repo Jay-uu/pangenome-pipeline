@@ -148,11 +148,16 @@
         "readcount": {
           "type": "string",
           "description": "A tab-delimited file with sample, nr fastqs and total reads"
+        },
+        "force_variant_calling": {
+          "type": "string",
+          "description": "Run variant calling and Pogenom even when subsampling is skipped",
+          "help_text": "Default behaviour is to not run the variant calling workflow when skipping subsampling. This parameter allows that to be bypassed, meaning that read mapping each sample to each pangenome/reference genome might take a very long time and use a lot of resources."
         }
       }
     },
-    "new_group_1": {
-      "title": "New Group 1",
+    "assembly": {
+      "title": "Assembly",
       "type": "object",
       "description": "",
       "default": "",
@@ -160,7 +165,7 @@
         "binners": {
           "type": "string",
           "default": "maxbin,metabat2,concoct",
-          "description": "might just be for testing"
+          "description": "Choose which binners to use when assembling"
         }
       }
     },
@@ -201,7 +206,7 @@
       "$ref": "#/definitions/subsampling"
     },
     {
-      "$ref": "#/definitions/new_group_1"
+      "$ref": "#/definitions/assembly"
     },
     {
       "$ref": "#/definitions/general_parameters"
