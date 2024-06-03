@@ -218,12 +218,9 @@ workflow pangenome_assembly {
     	mOTUs_to_pangenome(create_mOTU_dirs.out.transpose())
     	
     	/*
-    	FOR NOW, RUNNING CHECKM HERE BECAUSE THE INPUT NEEDS A DIR. WILL PROBABLY CHANGE THAT SO CHECKM CAN RUN WITH THE REF GENOME START TOO
-    	BUT WE HAVEN'T YET DECIDED WHICH CHECKM VERSION TO USE, SO I WON'T EDIT YET CAUSE THIS IS EASIER.
+    	The checkm2 process will need to be updated when checkm2 is in the SQM env.
     	*/
-    	mOTUs_to_pangenome.out.pangenome_dir.multiMap { dir -> to_checkm: to_checkm2: dir }.set { pang_dirs }
-    	checkm_pangenomes(pang_dirs.to_checkm)
-        checkm2_pangenomes(pang_dirs.to_checkm2)
+        checkm2_pangenomes(mOTUs_to_pangenome.out.pangenome_dir)
     
     emit:
     	core_fasta = mOTUs_to_pangenome.out.core_fasta //channel: path(pangenomes/${mOTU_dir}/*.core.fasta)
