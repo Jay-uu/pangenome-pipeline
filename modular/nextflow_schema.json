@@ -28,23 +28,11 @@
       "description": "",
       "default": "",
       "properties": {
-        "mean_cov_threshold": {
-          "type": "integer",
-          "default": 20,
-          "description": "Min. mean coverage for a sample to match a pangenome",
-          "help_text": "The coverage is estimated based on a subset of one million reads from each read-file from a sample and extrapolated based on number of reads. In other words, this value determined the expected average minimum number of reads on each position in the pangenome."
-        },
         "nr_samps_threshold": {
           "type": "integer",
           "default": 5,
           "description": "Minimum number of matching samples for a pangenome to be considered for further analysis",
           "help_text": "The minimum number of samples with good average expected coverage for a pangenome to be used for downstream analysis."
-        },
-        "min_med_cov": {
-          "type": "integer",
-          "default": 20,
-          "description": "Min. median coverage for a sample to a pangenome to be used",
-          "help_text": "Median coverage is based on the alignment of all of a samples reads to a pangenome. This value determines the minimum required median coverage and the downsampling ratio. Samples that pass the median coverage and breadth checks will be downsampled for even coverage between samples, and used to analyse variants within a pangenome."
         },
         "min_breadth": {
           "type": "integer",
@@ -67,6 +55,11 @@
           "default": 1000000,
           "description": "Number of reads to be subsampled from the raw fastq files",
           "help_text": "You can modify how many reads should be subsampled to then be used for mapping against the pangenomes/reference genomes to determine which samples have good coverage for that genome."
+        },
+        "min_median_cov": {
+          "type": "integer",
+          "default": 20,
+          "description": "Minimum coverage for a sample to be used for variant calling to a pangenome"
         }
       }
     },
