@@ -54,7 +54,7 @@ if (params.subsample == false) {
     }
     
 if (params.bins != null && params.ref_genomes != null) {
-	throw new Exception("You can either provide pre-assembled bins or previously created reference genomes, but not both. Please either the --bins flag or the --ref_genomes flag. ")
+	throw new Exception("You can either provide pre-assembled bins or previously created reference genomes, but not both. Please use either the --bins flag or the --ref_genomes flag. ")
 }
 // import modules
 //maybe later I will move the workflows into separate files and only import the necessary modules for that workflow
@@ -94,6 +94,26 @@ def concat_subsamp_samples(sample_ch) {
 	sample_ch.collectFile(name: "${params.project}.subsampled.samples", newLine: true, storeDir: "${params.project}/subsamples")
 }
 
+workflow subsample_reads {
+    take:
+    samples_files
+    fastq_ch
+    main:
+    	//Subsample fastq files
+    	subsample_fastqs(samples_files, fastq_ch.first())
+        
+        //Mapping channel to be able to concatenate the readcounts and publish them, as well as send to next WF.
+        subsample_fastqs.out.readcount.multiMap { chan -> to_emit: to_concat: chan }.set { ch_readcounts }
+        
+        //Publish concatenated files
+        concat_readcounts(ch_readcounts.to_concat)
+    	concat_subsamp_samples(subsample_fastqs.out.sample_file)
+
+    emit:
+    	sub_reads = subsample_fastqs.out.sub_reads //channel: [val("ID"), path("sub_ID.fq.gz")]
+    	readcounts = ch_readcounts.to_emit //channel: path(ID_readcount.txt)
+}
+
 
 workflow raw_to_bins {  
     main:
@@ -115,18 +135,14 @@ workflow raw_to_bins {
     	summarize_bintables(ch_bintables.to_summarize)
 
     	//Concatenating fastqs and subsampling for later mapping for each singles sample
-        subsample_fastqs(samples_files.to_subsamp, fastq_ch.to_subsamp.first())
-        concat_subsamp_samples(subsample_fastqs.out.sample_file)
-        
-        //Mapping channel to be able to concatenate the readcounts and publish them, as well as send to next WF.
-        subsample_fastqs.out.readcount.multiMap { chan -> to_emit: to_concat: chan }.set { ch_readcounts }
-        concat_readcounts(ch_readcounts.to_concat)
+    	subsample_reads(samples_files.to_subsamp, fastq_ch.to_subsamp)
+
 
     emit:
     	bins = fastq_to_bins.out.bins //channel: path(ID/results/bins/*.fa)
     	bintable = ch_bintables.to_emit //channel: path(ID/results/18.ID.bintable)
-    	sub_reads = subsample_fastqs.out.sub_reads //channel: [val("ID"), path("sub_ID.fq.gz")]
-    	readcounts = ch_readcounts.to_emit //channel: path(ID_readcount.txt)
+    	sub_reads = subsample_reads.out.sub_reads //channel: [val("ID"), path("sub_ID.fq.gz")]
+    	readcounts = subsample_reads.out.readcounts //channel: path(ID_readcount.txt)
     	
 }
 
@@ -146,14 +162,12 @@ workflow provided_bins {
             fastq_ch = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
             
             format_samples(sam_ch, fastq_ch)
-            subsample_fastqs(format_samples.out.flatten(), fastq_ch.first())
-            sub_reads = subsample_fastqs.out.sub_reads
-            
-            subsample_fastqs.out.readcount.multiMap { chan -> to_emit: to_concat: chan }.set { ch_readcounts }
-            concat_readcounts(ch_readcounts.to_concat)
-            
-    	    readcounts = ch_readcounts.to_emit
-    	    concat_subsamp_samples(subsample_fastqs.out.sample_file)
+            samples_files = format_samples.out.flatten()
+            subsample_reads(samples_files, fastq_ch)
+                        
+    	    readcounts = subsample_reads.out.readcounts
+    	    sub_reads = subsample_reads.out.sub_reads
+
         }
         else {
             sub_reads = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //double check format of subsample_fastqs_out.sub_reads to make this match
@@ -314,7 +328,19 @@ workflow {
         and for the variance analysis.
         */
         core_ch = ref_gens.core
-        NBPs_ch = ref_gens.NBPs   
+        NBPs_ch = ref_gens.NBPs
+        
+        if ( params.subsample == true ) {
+            sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
+            fastq_ch = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+            
+            format_samples(sam_ch, fastq_ch)
+            samples_files = format_samples.out.flatten()
+            subsample_reads(samples_files, fastq_ch)
+                        
+    	    readcounts = subsample_reads.out.readcounts
+    	    sub_reads = subsample_reads.out.sub_reads  
+    	}
     }
     /*
     If no reference genome directory was provided, pangenomes will be constructed.
