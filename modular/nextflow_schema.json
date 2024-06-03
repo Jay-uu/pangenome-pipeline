@@ -143,7 +143,7 @@
           "description": "A tab-delimited file with sample, nr fastqs and total reads"
         },
         "force_variant_calling": {
-          "type": "string",
+          "type": "boolean",
           "description": "Run variant calling and Pogenom even when subsampling is skipped",
           "help_text": "Default behaviour is to not run the variant calling workflow when skipping subsampling. This parameter allows that to be bypassed, meaning that read mapping each sample to each pangenome/reference genome might take a very long time and use a lot of resources."
         }
@@ -180,6 +180,18 @@
           "description": "Usage help"
         }
       }
+    },
+    "new_group_1": {
+      "title": "New Group 1",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "min_locus_cov": {
+          "type": "integer",
+          "default": 10
+        }
+      }
     }
   },
   "allOf": [
@@ -203,6 +215,9 @@
     },
     {
       "$ref": "#/definitions/general_parameters"
+    },
+    {
+      "$ref": "#/definitions/new_group_1"
     }
   ]
 }

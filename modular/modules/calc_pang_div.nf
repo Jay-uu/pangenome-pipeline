@@ -20,7 +20,7 @@ process calc_pang_div {
     shell:
     '''
     echo "Running pogenom for !{pang_ID}"
-    run-pogenom.py !{vcf} -f !{genome} --gff !{gff} -t !{task.cpus} -p !{pang_ID} -o results
+    run-pogenom.py !{vcf} -f !{genome} --gff !{gff} --minCount !{params.min_locus_cov}-t !{task.cpus} -p !{pang_ID} -o results
     #removing tmp dir
     rm -r results/temp
     '''
