@@ -2,16 +2,15 @@
 This process might be removed if we decide to use checkM instead
 */
 process checkm2_pangenomes {
-    publishDir "${params.project}/mOTUs/${pangenome_dir.baseName}/checkm", mode: "copy", pattern: "${pangenome_dir.baseName}_cM2/quality_report.tsv", saveAs: { filename -> "${pangenome_dir.baseName}_cM2_summary.txt" }
+    publishDir "${params.project}/mOTUs/results/${pangenome_dir.baseName}/pangenome", mode: "copy", pattern: "${pangenome_dir.baseName}_cM2/quality_report.tsv", saveAs: { filename -> "${pangenome_dir.baseName}_cM2_summary.txt" }
     publishDir "${params.project}/checkm_pangenomes", mode: "copy" //remove when finalizing pipeline
-    //temporary until we decide which checkM version to use
-    //conda '/home/jay/mambaforge/envs/checkm2'
-    conda '/crex/proj/fume/nobackup/private/jay/mamba_envs/checkm2'
+    //temporary until checkm2 in SQM env
+    conda '/home/jay/mambaforge/envs/checkm2'
+    //conda '/crex/proj/fume/nobackup/private/jay/mamba_envs/checkm2'
     tag "no_label"
     input:
     path(pangenome_dir)
     output:
-    //path("*_cM2", type: "dir") //this cant be here if I wanna use saveAs
     path("${pangenome_dir.baseName}_cM2/quality_report.tsv", type: "path")
     shell:
     '''
