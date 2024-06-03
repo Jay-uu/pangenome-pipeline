@@ -29,7 +29,9 @@ process map_subset {
     samtools sort tmp_alignment.bam -O BAM -o !{pang_id}_${reads_id}_alignment.bam --threads !{task.cpus}
     
     echo "Computing coverage"
-    samtools coverage !{pang_id}_${reads_id}_alignment.bam -o !{pang_id}_${reads_id}_coverage.tsv
+    #samtools coverage !{pang_id}_${reads_id}_alignment.bam -o !{pang_id}_${reads_id}_coverage.tsv
+    #include orphans, max depth 1M, min base qual 15, output all positions
+    samtools mpileup -A -d 1000000 -Q 15 -a !{pang_id}_${reads_id}_alignment.bam -o !{pang_id}_${reads_id}_coverage.tsv
     
     echo "Removing .bam files" #to save space
     rm *.bam #the sorted bams are named despite being deleted in case we decide a downstream process needs them.
