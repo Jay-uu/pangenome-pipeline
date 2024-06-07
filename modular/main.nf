@@ -44,12 +44,14 @@ if (workflow.resume == false) {
 
 println "The subsample parameter is set to ${params.subsample}"
 if (params.subsample == false) {
-	if (params.bins == null) {
-	    throw new Exception("Skipping subsampling is only allowed for the bin entry. Please provide a directory with --bins <path/to/dir> or set --subsample <true>.")
-	}
+	//Currently we want to allow the subsampling to run 
+	//if (params.bins == null) {
+	//    throw new Exception("Skipping subsampling is only allowed for the bin entry. Please provide a directory with --bins <path/to/dir> or set --subsample <true>.")
+	//}
 	if (params.readcount == null) {
-	    throw new Exception("When skipping subsampling containing files with the suffix <sample>_readcount.txt with readcounts need to be provided using --readcount <path/to/file>")
+	    throw new Exception("When skipping subsampling a tab delimited readcount file with Sample, Nr_fastqs, Total_reads needs to be provided with --readcount <path/to/file>")
 	    //file format Sample  Nr_fastqs       Total_reads
+	    //MAYBE UPDATE TO NOT REQUIRE NR_FASTQS BECAUSE IT'S OBSOLETE NOW
 	}
     }
     
@@ -171,7 +173,7 @@ workflow provided_bins {
         }
         else {
             sub_reads = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //double check format of subsample_fastqs_out.sub_reads to make this match
-            readcounts = Channel.fromPath( "${params.readcount}/*_readcount*.{txt, tsv}", type: "file", checkIfExists: true )
+            readcounts = Channel.fromPath( "${params.readcount}", type: "file", checkIfExists: true )
         
         }
     emit:
@@ -247,7 +249,7 @@ workflow match_samps_to_pang {
     Using the coverage from the mapping, decides which reads "belong" to which pangenome and creates new .samples files
     */
     sample_file = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
-    cov_to_pang_samples(map_subset.out.coverage.collect(),sample_file.first(), readcounts.collect())
+    cov_to_pang_samples(map_subset.out.coverage.collect(), sample_file.first(), readcounts.collect())
     cov_to_pang_samples.out.pang_samples.flatten().map { [it.getSimpleName(), it] }.set { pang_samples }
     
     emit:
@@ -323,6 +325,7 @@ workflow {
         therefore handling the reference as both.
         This means that the whole genome is used both for mapping a subset of the reads,
         and for the variance analysis.
+        WAIT DOESN'T THIS NEED TO BE UPDATED TOO? IF WE WANT TO RUN THIS PART WITH PANGENOMES THAT HAVE CORE AND ACCESSORY SEPARATELY?
         */
         core_ch = ref_gens.core
         NBPs_ch = ref_gens.NBPs
@@ -336,7 +339,10 @@ workflow {
             subsample_reads(samples_files, fastq_ch)
                         
     	    readcounts = subsample_reads.out.readcounts
-    	    sub_reads = subsample_reads.out.sub_reads  
+    	    sub_reads = subsample_reads.out.sub_reads
+    	    
+    	    core_ch.multiMap { it -> to_map: to_variants: it }.set { core_ch }
+    	    match_samps_to_pang(core_ch.to_map, sub_reads, readcounts) 
     	}
     }
     /*
@@ -369,18 +375,16 @@ workflow {
     	
     	core_ch = pangenome_assembly.out.core_fasta
     	NBPs_ch = pangenome_assembly.out.NBPs_fasta
-
+	
+	core_ch.multiMap { it -> to_map: to_variants: it }.set { core_ch }
+    	match_samps_to_pang(core_ch.to_map, sub_reads, readcounts)
     }
     if ( params.subsample == true) {
-    	core_ch.multiMap { it -> to_map: to_variants: it }.set { core_ch }
-    	match_samps_to_pang(core_ch.to_map, sub_reads, readcounts)
-    	/*
-    	Add wf description
-    	*/
+    	//Use only the samples with estimated good coverage from the subsampled reads.
     	variant_calling(core_ch.to_variants, NBPs_ch, match_samps_to_pang.out.pang_samples)
     	}
     else if (params.force_variant_calling == true) {
-    	//Skipping read mapping, since that would just mean mapping everything (instead of a subset) multiple times.
+    	//Using the full read files/all samples to map reads.
     	variant_calling(core_ch, NBPs_ch, Channel.fromPath(params.samples, type: "file", checkIfExists: true))
     	}
 }
