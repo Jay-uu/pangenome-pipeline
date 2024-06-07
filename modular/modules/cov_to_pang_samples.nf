@@ -10,12 +10,14 @@ Input:
 Output:
        pang_cpm_cov: Two files, one with the calculated results for CPM and the other with coverage.
        pang_samples: The new .samples files for the pangenomes.
+       individual_pang_cov: CPM and coverage for individual mOTUs/pangenomes published within their own dirs.
 */
 process cov_to_pang_samples {
     label "low_cpu"
     tag "low_cpu"
     publishDir "${params.project}/mOTUs", mode: "copy", pattern: "${params.project}.*.tsv"
-    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}
+    //publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}
+    //publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "${params.project}/*.samples", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getSimpleName()}.samples"}
     input:
     path(coverage)
     path(samples_file)
