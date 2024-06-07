@@ -15,16 +15,16 @@ Output:
 process cov_to_pang_samples {
     label "low_cpu"
     tag "low_cpu"
-    publishDir "${params.project}/mOTUs", mode: "copy", pattern: "${params.project}.*.tsv"
-    //publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}
-    //publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "${params.project}/*.samples", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getSimpleName()}.samples"}
+    publishDir "${params.project}/mOTUs", mode: "copy", pattern: "*.*.tsv"
+    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}
+    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "samples/*.samples", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getSimpleName()}.samples"}
     input:
     path(coverage)
     path(samples_file)
     path(readcounts)
     output:
-    path("${params.project}.*.tsv", emit: pang_cpm_cov)
-    path("${params.project}/*.samples", emit: pang_samples)
+    path("*.*.tsv", emit: pang_cpm_cov)
+    path("samples/*.samples", emit: pang_samples)
     path("pangenome/*.tsv"), emit: individual_pang_cov
     shell:
     $/
@@ -37,7 +37,7 @@ process cov_to_pang_samples {
     COV_THRESHOLD = !{params.min_median_cov}
     NR_SAMPS_THRESHOLD = !{params.nr_samps_threshold}
     NR_SUBSAMP = !{params.nr_subsamp}
-    OUTDIR = "!{params.project}"
+    PROJECT = os.path.basename("!{params.project}")
     
     print(f"Project is !{params.project}")
     """
@@ -84,11 +84,11 @@ process cov_to_pang_samples {
     print("Saving coverage and CPM to files.")
     all_cov = pd.DataFrame.from_dict(cov_dic, orient="index")
     all_cov = all_cov.reset_index().rename(columns={"index": "Pangenome"})
-    all_cov.to_csv(f"{OUTDIR}.cov.tsv", sep = '\t', index=False)
+    all_cov.to_csv(f"{PROJECT}.cov.tsv", sep = '\t', index=False)
     
     all_cpm = pd.DataFrame.from_dict(cpm_dic, orient="index")
     all_cpm = all_cpm.reset_index().rename(columns={"index": "Pangenome"})
-    all_cpm.to_csv(f"{OUTDIR}.cpm.tsv", sep = '\t', index=False)
+    all_cpm.to_csv(f"{PROJECT}.cpm.tsv", sep = '\t', index=False)
     
     print("Making individual cov and cpm files.")
     os.makedirs("pangenome")
@@ -97,7 +97,7 @@ process cov_to_pang_samples {
         all_cov[all_cov["Pangenome"] == pang].to_csv(f"pangenome/{motu}.cov.tsv", sep="\t", index = False)
         all_cpm[all_cpm["Pangenome"] == pang].to_csv(f"pangenome/{motu}.cpm.tsv", sep="\t", index = False)
 
-    os.makedirs(OUTDIR)
+    os.makedirs("samples")
     #create new .samples files for pangenomes that fit the coverage criteria
     print("Creating samples files for pangenomes that pass the thresholds.")
     samples_df = pd.read_csv(SAMPS_FILE, sep='\t', names=["sample","read", "pair"])
@@ -110,9 +110,9 @@ process cov_to_pang_samples {
         if len(ovr_thresh) >= NR_SAMPS_THRESHOLD:
             print(f"Creating new samples file for {pang_id}")
             new_samp_df = samples_df.query('sample in @ovr_thresh')
-            new_samp_df.to_csv(f"{OUTDIR}/{pang_id}.samples", header=False, index=None, sep='\t')
+            new_samp_df.to_csv(f"samples/{pang_id}.samples", header=False, index=None, sep='\t')
             
-    if len(glob.glob(f"{OUTDIR}/*.samples")) < 1:
+    if len(glob.glob(f"samples/*.samples")) < 1:
         raise Exception("It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --min_median_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or perhaps using more samples.")
    
     /$
