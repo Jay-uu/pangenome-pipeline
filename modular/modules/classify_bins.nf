@@ -3,14 +3,14 @@ Takes a directory with bins and runs them through SqueezeMeta, resulting in taxo
 Output is the dir with all SqueezeMeta results, the bins, and the combined checkM and GTDB-Tk results.
 */
 process classify_bins {
-    publishDir "${params.project}/bins/bintables", mode: "copy", pattern: "18.*.bintable", saveAs: { filename -> "${sample.baseName}.bintable" }
+    publishDir "${params.project}/bins/bintables", mode: "copy", pattern: "${sample.baseName}/results/18.*.bintable", saveAs: { filename -> "${sample.baseName}.bintable" }
+    publishDir "${params.project}/bins/fastas", mode: "copy", pattern: "${sample.baseName}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }
     tag "no_label"
     input:
     path(sample)
     path(in_bins)
     path(fastq_dir)
     output:
-    path("${sample.baseName}", emit: sample_dir)
     path("${sample.baseName}/results/bins/*.fa", emit: bins)
     path("${sample.baseName}/results/18.*.bintable", emit: bintable)
     shell:
