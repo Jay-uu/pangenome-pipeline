@@ -172,6 +172,9 @@ workflow provided_bins {
 
         }
         else {
+            //make this have the same format as subsample_reads.out.sub_reads tuple(val("${sample.baseName}"), path("sub_*.fq.gz"), emit: sub_reads)
+            //e.g: [mock1, [/home/jay/data/scratch_test/a8/ed4cad5ebae9332922a02f7722a1ea/sub_mock1_R1.fq.gz, /home/jay/data/scratch_test/a8/ed4cad5ebae9332922a02f7722a1ea/sub_mock1_R2.fq.gz]]
+            //I think I have to make a process for this... maybe. Or use groovy file reading stuff? Okay that isn't recommended for large files, so maybe I'll make a process just in case.
             sub_reads = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //double check format of subsample_fastqs_out.sub_reads to make this match
             readcounts = Channel.fromPath( "${params.readcount}", type: "file", checkIfExists: true )
         
