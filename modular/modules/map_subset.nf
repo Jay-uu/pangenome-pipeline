@@ -9,7 +9,7 @@ process map_subset {
     label "low_cpu"
     tag "low_cpu"
     input:
-    tuple(path(pangenome_dir),path(index), val(pang_id), val(sample_ID), path(sub_reads)) //use the combine operator on the channels in the workflow.
+    tuple(path(pangenome_dir),path(index), val(pang_id), val(sample_ID), path(sub_reads))
     output:
     path("*_coverage.tsv", emit: coverage)
     shell:
@@ -29,9 +29,8 @@ process map_subset {
     samtools sort tmp_alignment.bam -O BAM -o !{pang_id}_${reads_id}_alignment.bam --threads !{task.cpus}
     
     echo "Computing coverage"
-    #samtools coverage !{pang_id}_${reads_id}_alignment.bam -o !{pang_id}_${reads_id}_coverage.tsv
-    #include orphans, max depth 1M, min base qual 15, output all positions
-    samtools mpileup -A -d 1000000 -Q 15 -a !{pang_id}_${reads_id}_alignment.bam -o !{pang_id}_${reads_id}_coverage.tsv
+    #want all positions, not double count overlapping sections of paired reads, allow reads with deletions
+    samtools depth -aa -J -s -q 1 !{pang_id}_${reads_id}_alignment.bam -o !{pang_id}_${reads_id}_coverage.tsv
     
     echo "Removing .bam files" #to save space
     rm *.bam #the sorted bams are named despite being deleted in case we decide a downstream process needs them.

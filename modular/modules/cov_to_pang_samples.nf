@@ -43,14 +43,15 @@ process cov_to_pang_samples {
     """
     Input: 
         cov = dataframe of samtools coverage output
-        nr_fqs = nr of read files to the sample
         tot_reads = total count of reads from the sample read files
     Returns the weighted mean coverage per read, and the expected average
     coverage for all the reads of that sample to the pangenome.
     """
-    def get_weighted_mean(cov, tot_reads, nr_subsamp):
-        median = cov["Depth"].median()
-        CovPM = median*1000000/nr_subsamp
+    def get_expected_cov_cpm(cov, tot_reads, nr_subsamp):
+        #median = cov["Depth"].median()
+        #CovPM = median*1000000/nr_subsamp
+        mean = cov["Depth"].mean() #using mean to avoid getting 0
+        CovPM = mean*1000000/nr_subsamp
         exp_cov = CovPM*tot_reads/1000000
         return CovPM, exp_cov
     
@@ -67,7 +68,7 @@ process cov_to_pang_samples {
         print(f"Reading {file}")
         pang_id = file.split("_sub_",1)[0]
         samp_name = file.split("sub_",1)[1].split("_")[0]
-        header = ["Name", "Position", "Ref_base", "Depth", "Read_bases", "Base_quals"]
+        header = ["Name", "Position", "Depth"] #samtools depth format
         cov = pd.read_csv(file, sep="\t", names=header)
         tot_reads = readcount[readcount["Sample"]==samp_name]["Total_reads"].item()
         if NR_SUBSAMP > tot_reads:
@@ -75,7 +76,7 @@ process cov_to_pang_samples {
             nr_subsamp = tot_reads
         else:
             nr_subsamp = NR_SUBSAMP
-        cpm, exp_cov = get_weighted_mean(cov, tot_reads, nr_subsamp)
+        cpm, exp_cov = get_expected_cov_cpm(cov, tot_reads, nr_subsamp)
         print(f"Samp: {samp_name}, Median coverage: {exp_cov}, CPM: {cpm}")
         cpm_dic.setdefault(pang_id, {})[samp_name] = cpm
         cov_dic.setdefault(pang_id, {})[samp_name] = exp_cov

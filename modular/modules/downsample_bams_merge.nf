@@ -59,7 +59,9 @@ process downsample_bams_merge {
     do
         #mpileup command doesn't allow multithreading
         #-A for count orphans
-        samtools mpileup -A -d 1000000 -Q 15 -a $bam > tmp.mpileup
+        #samtools mpileup -A -d 1000000 -Q 15 -a $bam > tmp.mpileup
+        #using samtools depth instead, newer
+        samtools depth -aa -q 15 -s $bam > tmp.mpileup
     
         # ---- arguments
         mpileupfile=tmp.mpileup
@@ -75,10 +77,13 @@ process downsample_bams_merge {
         #take value in middle of array (or mean of two middle values if even nr of values) = median cov
         #Not 100% sure why 0 positions are excluded in Input_pogenom. Their paper does say that they do it purposefully though.
         #but assuming it's because they aren't actually used for variant calling and therefore irrelevant for the coverage and downsampling
-        cov=$(cut -f4 $mpileupfile | grep -vw "0" | sort -n | awk ' { a[i++]=$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
+        #cov=$(cut -f4 $mpileupfile | grep -vw "0" | sort -n | awk ' { a[i++]=$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
+        #samtools depth has the nr of reads at position in col 3
+        cov=$(cut -f3 $mpileupfile | grep -vw "0" | sort -n | awk ' { a[i++]=$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
 
         #---breadth
-        non_zero=$(cut -f4 $mpileupfile | grep -cvw "0")
+        #non_zero=$(cut -f4 $mpileupfile | grep -cvw "0") #mpileup way
+        non_zero=$(cut -f3 $mpileupfile | grep -cvw "0") #depth way
         breadth=$(echo $non_zero*100/$positions | bc -l )
 
         echo "Genome:" $mag "- Sample:" $samplename "Median_coverage of core:" $cov " breadth %:" $breadth
