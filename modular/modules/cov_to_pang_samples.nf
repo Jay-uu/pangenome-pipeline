@@ -55,7 +55,7 @@ process cov_to_pang_samples {
         exp_cov = CovPM*tot_reads/1000000
         return CovPM, exp_cov
     
-    count_files = glob.glob("*_readcount.txt")
+    count_files = glob.glob("*_readcounts.tsv")
     readcount = pd.DataFrame()
     for file in count_files:
         print(f"Appending {file}")

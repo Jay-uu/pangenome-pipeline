@@ -61,7 +61,7 @@ process downsample_bams_merge {
         #-A for count orphans
         #samtools mpileup -A -d 1000000 -Q 15 -a $bam > tmp.mpileup
         #using samtools depth instead, newer
-        samtools depth -aa -q 15 -s $bam > tmp.mpileup
+        samtools depth -aa -J -s -q 1 $bam > tmp.mpileup
     
         # ---- arguments
         mpileupfile=tmp.mpileup

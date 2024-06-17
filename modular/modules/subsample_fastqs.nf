@@ -13,7 +13,7 @@ process subsample_fastqs {
     path(fastq_dir)
     output:
     tuple(val("${sample.baseName}"), path("sub_*.fq.gz"), emit: sub_reads)
-    path("*_readcount.txt", emit: readcount)
+    path("*_readcounts.tsv", emit: readcount)
     path("*.subsampled.samples", emit: sample_file)
     shell:
     $/
@@ -92,7 +92,7 @@ process subsample_fastqs {
             outfile.write(f"\n{SAMPLE_ID}\t{rev_out}\tpair2")
         
     #write file with samp_name, nr fqs and tot_reads
-    with open(f"{SAMPLE_ID}_readcount.txt", "w") as out:
+    with open(f"{SAMPLE_ID}_readcounts.tsv", "w") as out:
         out.write("Sample\tNr_fastqs\tTotal_reads\n")
         out.write("\t".join([f"{SAMPLE_ID}", str(fq_count), str(tot_reads)+"\n"]))    
     /$
