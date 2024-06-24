@@ -7,7 +7,7 @@ Output is the coverage information of how well the reads mapped to the genome.
 */
 process map_subset {
     label "low_cpu"
-    tag "low_cpu"
+    tag "${pang_id}"
     input:
     tuple(path(pangenome_dir),path(index), val(pang_id), val(sample_ID), path(sub_reads))
     output:

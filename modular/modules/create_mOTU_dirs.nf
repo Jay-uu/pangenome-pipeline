@@ -1,7 +1,7 @@
 /*
 Takes the output from mOTUlizer and the bins and sorts them into new directories based on which mOTU they belong to.
-Input: Tuple with: group, name of the taxonomic classification/prefix for filenames. motus_file, has information about which bins belong to which
-mOTU, and the bintable with bins quality data. Also takes the bins as input.
+Input: Tuple with: group: name of the taxonomic classification/prefix for filenames. motus_file: has information about which bins belong to which
+mOTU, and the bintable with bins quality data.
 Output is a tuple with the new mOTU directory and the bintable.
 */
 //MAYBE ADD COMPLETENESS CHECK ALSO
@@ -10,7 +10,7 @@ process create_mOTU_dirs {
     //each motu_dir needs to be within ${params.project}/mOTUs/results/motu_name/bins/*.fa (symlinks) how?
     //publishDir "${params.project}/mOTUs/results/", mode: "symlink"
     label "low_cpu"
-    tag "low_cpu"
+    tag "${group}"
     input:
     tuple(val(group), path(motus_file), path(bintable))
     path(bins)

@@ -5,7 +5,7 @@ Output is a list of all the individual samples files.
 */
 process format_samples {
     label "low_cpu"
-    tag "low_cpu"
+    tag "All_samples"
     input:
     path(samples_file)
     path(fastq_dir)

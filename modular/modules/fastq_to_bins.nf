@@ -5,7 +5,8 @@ Output is the dir with all SqueezeMeta results, the bins, and the combined check
 process fastq_to_bins {
     publishDir "${params.project}/bins/fastas", mode: "copy", pattern: "${sample.baseName}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }
     publishDir "${params.project}/bins/bintables", mode: "copy", pattern: "${sample.baseName}/results/18.*.bintable", saveAs: { filename -> "${sample.baseName}.bintable" }
-    tag "no_label"
+    label "no_label"
+    tag "${sample.baseName}"
     input:
     path(sample)
     path(fastq_dir)

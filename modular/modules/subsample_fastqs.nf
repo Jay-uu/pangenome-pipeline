@@ -6,7 +6,7 @@ Output is a tuple of the sample name and the two resulting concatenated subsampl
 
 process subsample_fastqs {
     label "low_cpu"
-    tag "low_cpu"
+    tag "${sample.baseName}"
     publishDir "${params.project}/subsamples/fastqs", mode: "copy", pattern: "*.fq.gz"
     input:
     path(sample)
@@ -25,7 +25,6 @@ process subsample_fastqs {
     from subprocess import run
     from subprocess import check_output
     import gzip
-    import shutil
 
     NR_SUBSAMP = int("!{params.nr_subsamp}")
     FASTQ_FILES = os.listdir("!{fastq_dir}")
@@ -38,7 +37,7 @@ process subsample_fastqs {
     def concat_subtk_compress(file_list, direction, nr_subsamp):
         file_list = ["!{fastq_dir}/" + readfile for readfile in file_list]
         with open(f"sub_{SAMPLE_ID}_{direction}.fq.gz", "w") as subout:
-            concat = Popen(["cat", (" ").join(file_list)], stdout=PIPE)
+            concat = Popen(["cat"] + file_list, stdout=PIPE)
             subtk = Popen(["seqtk", "sample", "-s100", "-", f"{nr_subsamp}"], stdin=concat.stdout, stdout=PIPE)
             run(["gzip"], stdin=subtk.stdout, stdout=subout)
         return f"sub_{SAMPLE_ID}_{direction}.fq.gz"  

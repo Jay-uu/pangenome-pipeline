@@ -8,13 +8,16 @@ This could possibly be changed to have different script parts, which would mean 
 process mOTUs_to_pangenome {
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome", mode: "copyNoFollow",  pattern: "pangenomes/${mOTU_dir}", saveAs: { filename -> "superpang/" }
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copyNoFollow", pattern: "bins"
-    tag "no_label"
+    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome/superpang/", mode: "copy", pattern: "*contigs.tsv"
+    label "no_label"
+    tag "${mOTU_dir.baseName}"
     input:
     tuple(path(mOTU_dir), path(bintable))
     output:
     path("pangenomes/${mOTU_dir}", type: "dir", emit: pangenome_dir)
     path("pangenomes/${mOTU_dir}/*.NBPs.fasta", emit: NBPs_fasta)
     path("pangenomes/${mOTU_dir}/*.core.fasta", emit: core_fasta)
+    path("${mOTU_dir}.core.contigs.tsv"), emit: contigs_tsv
     path("bins"), type: "dir", emit: motu_bins_links
     shell:
     $/
@@ -42,11 +45,11 @@ process mOTUs_to_pangenome {
         if os.stat(core_name).st_size == 0:
             print("Core genome file empty. Will use the consensus assembly for read mapping.")
             print("This shouldn't happen unless you're using mock communities.")
-            #make consensus.core.fasta as symlink
-            new_core_name = f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".consensus.core.fasta"
-            Path(new_core_name).symlink_to("!{mOTU_dir}" + ".NBPs.fasta")
-            #and remove the old core fasta, since I can't output python variables and this makes the output flexible
+            #remove the old core fasta, since I can't output python variables and this makes the output flexible
             Path.unlink(Path(core_name))
+            #make consensus.core.fasta as symlink
+            core_name = f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".consensus.core.fasta"
+            Path(core_name).symlink_to("!{mOTU_dir}" + ".NBPs.fasta")
     
     elif nr_genomes == 1:
         print("Only one genome in mOTU. Renaming headers and copying to pangenome dir.")
@@ -68,6 +71,16 @@ process mOTUs_to_pangenome {
         Path(symfile).symlink_to("!{mOTU_dir}" + ".singlemOTU.core.fasta")
     else:
         raise Exception(f"No fastas found in !{mOTU_dir}")
+        
+    #Getting the core contig names over a certain length in a tsv for the VC workflow
+    with open(core_name, "rt") as pg:
+        all_contigs = list(SeqIO.parse(pg, "fasta"))
+        with open(f"!{mOTU_dir}.core.contigs.tsv", "w") as outfile:
+            for i,s in enumerate(all_contigs):
+                c_len = len(s.seq)
+                if c_len >= !{params.min_contig_len}:
+                    outfile.write(f"{s.id}\t{c_len}\n")       
+    
         
     #when published, link will be in project/mOTUs/results/motu_xxx/bins/symlink
     #while bins are in project/bins/fastas/bin.fa

@@ -7,7 +7,8 @@ process checkm2_pangenomes {
     //temporary until checkm2 in SQM env
     conda '/home/jay/mambaforge/envs/checkm2'
     //conda '/crex/proj/fume/nobackup/private/jay/mamba_envs/checkm2'
-    tag "no_label"
+    label "no_label"
+    tag "${pangenome_dir.baseName}"
     input:
     path(pangenome_dir)
     output:

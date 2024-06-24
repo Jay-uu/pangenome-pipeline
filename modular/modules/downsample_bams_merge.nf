@@ -1,6 +1,5 @@
 /*
-This process takes the SqueezeMeta output and downsamples the bam files to get even coverage between samples, in preparation for Variant Calling.
-This is only done on the core contigs over a certain length because those are the ones used for variant calling.
+This process takes the SqueezeMeta output and contig names to downsamples the bam files to get even coverage between samples, in preparation for Variant Calling.
 Input: the results directory from SqueezeMeta.
 Output: Since there is a possibility that no bams fit the minimum coverage and breadth criteria, this process might have no output or it will send
         a tuple with a fasta file of all contigs longer than 1000 bases from the input pangenome and a merged bam-file from all bams that passed the breadth
@@ -9,44 +8,30 @@ The downsampling shell code is modified from POGENOM's Input_pogenom pipeline by
 See here: https://github.com/EnvGen/POGENOM/blob/master/Input_POGENOM/src/cov_bdrth_in_dataset.sh
 */
 process downsample_bams_merge {
-    tag "no_label"
+    label "no_label"
+    tag "${pang_id}"
     input:
-    tuple(val(pang_id), path(pang_sqm), path(core_fasta))
+    tuple(val(pang_id), path(pang_sqm), path(contigs_tsv))
     output:
     tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam"), optional: true, emit: ref_merged)
     shell:
     '''
-    cont_len=1000 #TURN INTO PIPELINE PARAM?
-    #Get total length of NBPs longer than ${cont_len}
-    echo "Counting positions in the core fasta"
-    positions=$(awk 'BEGIN{i=0}; {(length($0) >= '${cont_len}')} {i=i+length($0)} END {print i}' !{core_fasta})
-    echo "The total length of NBPs longer than ${cont_len} in the core fasta is ${positions}"
-    core=false
-    if grep -q "core" !{core_fasta}; then
-        echo "Identified as core genome"
-        core=true
-    else
-        echo "Identified as a singlemOTU or consensus genome. Will use all contigs over ${cont_len}"
-    fi
-    
     #Create tmp bams, filter for contigs over ${cont_len} bases put reads aligning to them in tmp_bams
     echo "Creating tmp bams"
     mkdir tmp_bams
-    for bam in !{pang_sqm}/data/bam/*.bam;
+    for bam in !{pang_sqm}/data/bam/*.bam; #*/
     do
 	echo "Filtering ${bam} alignments for contig length and core contigs"
         #Filter to select only paired reads (-f 2) and avoids optical duplicates (-F 1024)
         samtools view -Sbh -F 1024 -q 20 --threads !{task.cpus} $bam > tmp_filtered.bam
         samtools index tmp_filtered.bam
         
-        #names of contigs longer than ${cont_len} in first column, and the length of contig in second column
-	if $core; then
-	   echo "Identified as core genome"
-	   samtools idxstats tmp_filtered.bam --threads !{task.cpus} | awk '$2 >= '${cont_len}' { print $0 }' | grep "core" > contigs.tsv
-	else
-	   samtools idxstats tmp_filtered.bam --threads !{task.cpus} | awk '$2 >= '${cont_len}' { print $0 }' > contigs.tsv
-	fi
-        awk ' { print $1, 1, $2} ' contigs.tsv > contigs.bed
+        if test -f *contigs.tsv; then
+            awk ' { print $1, 1, $2} ' !{contigs_tsv} > contigs.bed #get input contigs.tsv instead
+        else
+            #create a contigs.bed with all contigs. This should maybe be done using the bamfile instead.
+            grep ">" !{pang_sqm}/results/01.*.fasta > contigs.bed
+        fi
         #create tmp bams
         bam_ID=$(basename $bam .bam)
         samtools view -b -L contigs.bed --threads !{task.cpus} tmp_filtered.bam > tmp_bams/${bam_ID}.bam
@@ -84,6 +69,7 @@ process downsample_bams_merge {
         #---breadth
         #non_zero=$(cut -f4 $mpileupfile | grep -cvw "0") #mpileup way
         non_zero=$(cut -f3 $mpileupfile | grep -cvw "0") #depth way
+        positions=$(wc -l < $mpileupfile)
         breadth=$(echo $non_zero*100/$positions | bc -l )
 
         echo "Genome:" $mag "- Sample:" $samplename "Median_coverage of core:" $cov " breadth %:" $breadth
@@ -103,11 +89,11 @@ process downsample_bams_merge {
     if [ -z "$(ls -A !{pang_sqm}_mergeable)" ]; then
          echo "No sample fit the alignment criteria. Skipping further analysis for !{pang_sqm}"
     else
-        echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over ${cont_len} bases."
-        ls !{pang_sqm}_mergeable/*.bam > bamlist.txt
+        echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over !{params.min_contig_len} bases."
+        ls !{pang_sqm}_mergeable/*.bam > bamlist.txt #*/
         samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{task.cpus}
         samtools index !{pang_sqm}_merged.bam --threads !{task.cpus}
-        samtools idxstats !{pang_sqm}_merged.bam --threads !{task.cpus}| awk '$2 >= '${cont_len}' { print $0 }' > long_contigs.tsv
+        samtools idxstats !{pang_sqm}_merged.bam --threads !{task.cpus}| awk '$2 >= '!{params.min_contig_len}' { print $0 }' > long_contigs.tsv
         awk '{ print $1 }' long_contigs.tsv > contig_names.tsv
         #seqtk doesn't allow multithreading
         seqtk subseq !{pang_sqm}/results/01.*.fasta contig_names.tsv > !{pang_sqm}_long_contigs.fasta

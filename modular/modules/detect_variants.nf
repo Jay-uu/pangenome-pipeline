@@ -6,7 +6,7 @@ Output: A filtered vcf file.
 process detect_variants {
     publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "*.vcf", saveAs: { filename -> "${pangenome}" - "_long_contigs.fasta" + "/pangenome/pogenom/" + filename }
     label "low_cpu"
-    tag "low_cpu"
+    tag "${pangenome.baseName}"
     input:
     tuple(path(pangenome), path(bam))
     output:
