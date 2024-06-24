@@ -24,6 +24,11 @@
           "type": "string",
           "description": "A tab-delimited file with sample, nr fastqs and total reads",
           "help_text": "E.g.\nSample Nr_fastqs Total_reads\nSample1 2 1000000\nSample2 4 2000000\netc. for each sample"
+        },
+        "contigs": {
+          "type": "string",
+          "help_text": "A tsv with contig names and length, named <ref_genome.contigs.tsv> specifying the contigs you're interested in SNP analysis for.",
+          "description": "TSV with contig names that you want to use for variant calling. If not provided will use whole reference fasta genome when starting from ref_genomes. Otherwise ignored."
         }
       }
     },
@@ -65,6 +70,11 @@
           "type": "integer",
           "default": 20,
           "description": "Minimum coverage for a sample to be used for variant calling to a pangenome"
+        },
+        "min_contig_len": {
+          "type": "integer",
+          "default": 1000,
+          "description": "Minimum lenght of contigs used for variant calling."
         }
       }
     },

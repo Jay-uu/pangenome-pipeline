@@ -78,7 +78,7 @@ include { downsample_bams_merge } from './modules/downsample_bams_merge'
 include { detect_variants } from './modules/detect_variants'
 include { classify_bins } from './modules/classify_bins.nf'
 include { calc_pang_div } from './modules/calc_pang_div.nf'
-//include {  } from './modules/'
+include { tuplify_samp_fastqs } from './modules/tuplify_samp_fastqs.nf'
 
 def summarize_bintables(bintable_ch) {
 	bintable_header = Channel.value( "Bin ID	Completeness	Contamination	Tax GTDB-Tk" )
@@ -137,7 +137,7 @@ workflow raw_to_bins {
     	summarize_bintables(ch_bintables.to_summarize)
 
     	//Concatenating fastqs and subsampling for later mapping for each singles sample
-    	subsample_reads(samples_files.to_subsamp, fastq_ch.to_subsamp)
+    	subsample_reads(samples_files.to_subsamp, fastq_ch.to_subsamp.first())
 
 
     emit:
@@ -154,28 +154,28 @@ workflow provided_bins {
         //there should be a check that there's fastas in the dir too, maybe in the workflow or the process?
         bins_dir = Channel.fromPath(params.bins, type: "dir", checkIfExists: true)
         fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //should be subsampled fastqs provided by user
-	//if taxonomy and completeness already provided, don't need to run this.
+	//if taxonomy and completeness already provided, don't need to run this. Might add something for it in the future.
         classify_bins(sample_file, bins_dir, fastq_dir.first())
         classify_bins.out.bintable.multiMap { chan -> to_emit: to_summarize: chan }.set { ch_bintables }
         summarize_bintables(ch_bintables.to_summarize)
         
+        sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
+        fastq_ch = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+        fastq_ch.multiMap { chan -> to_format: to_sub: chan }.set { fastq_ch }
+        
+        format_samples(sam_ch, fastq_ch.to_format)
+        samples_files = format_samples.out.flatten()
+        
         if ( params.subsample == true ) {
-            sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
-            fastq_ch = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-            
-            format_samples(sam_ch, fastq_ch)
-            samples_files = format_samples.out.flatten()
-            subsample_reads(samples_files, fastq_ch)
-                        
+            subsample_reads(samples_files, fastq_ch.to_sub)           
     	    readcounts = subsample_reads.out.readcounts
     	    sub_reads = subsample_reads.out.sub_reads
 
         }
         else {
-            //make this have the same format as subsample_reads.out.sub_reads tuple(val("${sample.baseName}"), path("sub_*.fq.gz"), emit: sub_reads)
-            //e.g: [mock1, [/home/jay/data/scratch_test/a8/ed4cad5ebae9332922a02f7722a1ea/sub_mock1_R1.fq.gz, /home/jay/data/scratch_test/a8/ed4cad5ebae9332922a02f7722a1ea/sub_mock1_R2.fq.gz]]
-            //I think I have to make a process for this... maybe. Or use groovy file reading stuff? Okay that isn't recommended for large files, so maybe I'll make a process just in case.
-            sub_reads = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //double check format of subsample_fastqs_out.sub_reads to make this match
+            //tuplify_samp_fastqs output has the same format as subsample_reads.out.sub_reads tuple(val("${sample.baseName}"), path("sub_*.fq.gz"), emit: sub_reads)
+            tuplify_samp_fastqs(samples_files, fastq_ch.to_sub.first())
+            sub_reads = tuplify_samp_fastqs.out.reads
             readcounts = Channel.fromPath( "${params.readcount}", type: "file", checkIfExists: true )
         
         }
@@ -230,7 +230,7 @@ workflow pangenome_assembly {
     emit:
     	core_fasta = mOTUs_to_pangenome.out.core_fasta //channel: path(pangenomes/${mOTU_dir}/*.core.fasta)
     	NBPs_fasta = mOTUs_to_pangenome.out.NBPs_fasta //channel: path(pangenomes/${mOTU_dir}/*.NBPs.fasta)
-	//maybe add filtered core (longer than threshold) as output here
+    	contigs_tsv = mOTUs_to_pangenome.out.contigs_tsv //channel: path(pangenomes/${mOTU_dir}_core_contigs.tsv)
     
 }
 
@@ -262,9 +262,9 @@ workflow match_samps_to_pang {
 
 workflow variant_calling {
     take:
-    core_fasta		//channel: path(core.fasta)
     NBPs_fasta		//channel: path(NBPs.fasta)
     pang_samples	//channel: [val(ID), path(ID.samples)] or if subsample == false path(project.samples)
+    contigs_tsv	//channel: path(contigs.tsv)
     main:    
     //Going to mutliple processes
     fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
@@ -290,15 +290,23 @@ workflow variant_calling {
 		.map { [it.getSimpleName(), it] }
 		.set { pang_sqm }
 
-    core_fasta
+    contigs_tsv
 		.map { [it.getSimpleName(), it] }
-		.set { core_to_downsample }
+		.set { contigs_to_downsample } //expected name of contigs_tsv is pangenome_name.contigs.tsv will fail otherwise. Add a check?	
 
     /*
     Downsampling for even coverage and filtering for bams that pass coverage and breadth criteria.
     */
-    downsample_bams_merge(pang_sqm.combine(core_to_downsample, by: 0))
-
+    if ( contigs_tsv ) {
+        contigs_tsv
+		.map { [it.getSimpleName(), it] }
+		.set { contigs_to_downsample } //expected name of contigs_tsv is pangenome_name.contigs.tsv will fail otherwise. Add a check?
+        downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0))
+    }
+    else {
+        downsample_bams_merge(pang_sqm.combine(contigs_tsv)) //get the empty channel matched with each
+    }
+    
     /*
     Running freebayes on the merged bam to get a filtered vcf file.
     */
@@ -328,10 +336,18 @@ workflow {
         therefore handling the reference as both.
         This means that the whole genome is used both for mapping a subset of the reads,
         and for the variance analysis.
-        WAIT DOESN'T THIS NEED TO BE UPDATED TOO? IF WE WANT TO RUN THIS PART WITH PANGENOMES THAT HAVE CORE AND ACCESSORY SEPARATELY?
         */
         core_ch = ref_gens.core
         NBPs_ch = ref_gens.NBPs
+        
+        if ( params.contigs != null ) {
+            //Add check that the contigs have the right naming convention?
+            contigs_ch = Channel.fromPath( "${params.contigs}/*.contigs.tsv" , type: "file", checkIfExists: true ) //IF THIS WASNT PROVIDED, USE WHOLE FASTA. How do?
+        }
+        else {
+            //Not sure how to do this. Can I make an empty channel? Can I make a value?
+            contigs_ch = channel.empty() //seems like I cant make optional inputs yet. https://github.com/nextflow-io/nextflow/issues/1694 
+        }
         
         if ( params.subsample == true ) {
             sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
@@ -344,8 +360,7 @@ workflow {
     	    readcounts = subsample_reads.out.readcounts
     	    sub_reads = subsample_reads.out.sub_reads
     	    
-    	    core_ch.multiMap { it -> to_map: to_variants: it }.set { core_ch }
-    	    match_samps_to_pang(core_ch.to_map, sub_reads, readcounts) 
+    	    match_samps_to_pang(core_ch, sub_reads, readcounts) 
     	}
     }
     /*
@@ -378,22 +393,23 @@ workflow {
     	
     	core_ch = pangenome_assembly.out.core_fasta
     	NBPs_ch = pangenome_assembly.out.NBPs_fasta
+    	contigs_ch = pangenome_assembly.out.contigs_tsv
 	
 	core_ch.multiMap { it -> to_map: to_variants: it }.set { core_ch }
     	match_samps_to_pang(core_ch.to_map, sub_reads, readcounts)
     }
     if ( params.subsample == true) {
     	//Use only the samples with estimated good coverage from the subsampled reads.
-    	variant_calling(core_ch.to_variants, NBPs_ch, match_samps_to_pang.out.pang_samples)
+    	variant_calling(NBPs_ch, match_samps_to_pang.out.pang_samples, contigs_ch)
     	}
     else if (params.force_variant_calling == true) {
     	//Using the full read files/all samples to map reads.
-    	variant_calling(core_ch, NBPs_ch, Channel.fromPath(params.samples, type: "file", checkIfExists: true))
+    	variant_calling(NBPs_ch, Channel.fromPath(params.samples, type: "file", checkIfExists: true), contigs_ch)
     	}
 }
 
     //It should be possible to add a message for when the pipeline finishes.
     workflow.onComplete {
-        println "Your results can be found at ${params.project}. Have fun!"
+        println "Your results can be found at ${params.project}\nHave fun!"
     }
 
