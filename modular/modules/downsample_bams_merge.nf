@@ -16,22 +16,34 @@ process downsample_bams_merge {
     tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam"), optional: true, emit: ref_merged)
     shell:
     '''
+    if [ !{params.contigs} == null ]; then
+    #create a contigs tsv will all contigs and bed
+        #required fields: name, start, length
+        bam=$(ls !{pang_sqm}/data/bam/*.bam | head -n1) #*/ comment is for editor purposes
+        echo "Using ${bam} to create contigs.bed, since no selected contigs were provided."
+        bedtools bamtobed -i $bam > contigs.bed
+    else
+        #create bed from contigs_tsv
+        echo "Converting provided list of contigs to a bed file."
+        awk ' { print $1, 1, $2} ' !{contigs_tsv} > contigs.bed
+    fi
+        
     #Create tmp bams, filter for contigs over ${cont_len} bases put reads aligning to them in tmp_bams
     echo "Creating tmp bams"
     mkdir tmp_bams
     for bam in !{pang_sqm}/data/bam/*.bam; #*/
     do
-	echo "Filtering ${bam} alignments for contig length and core contigs"
+	echo "Filtering ${bam} alignments for selected contigs"
         #Filter to select only paired reads (-f 2) and avoids optical duplicates (-F 1024)
         samtools view -Sbh -F 1024 -q 20 --threads !{task.cpus} $bam > tmp_filtered.bam
         samtools index tmp_filtered.bam
         
-        if test -f *contigs.tsv; then
-            awk ' { print $1, 1, $2} ' !{contigs_tsv} > contigs.bed #get input contigs.tsv instead
-        else
-            #create a contigs.bed with all contigs. This should maybe be done using the bamfile instead.
-            grep ">" !{pang_sqm}/results/01.*.fasta > contigs.bed
-        fi
+        #if test -f *contigs.tsv; then
+        #    awk ' { print $1, 1, $2} ' !{contigs_tsv} > contigs.bed #get input contigs.tsv instead
+        #else
+        #    #create a contigs.bed with all contigs. This should maybe be done using the bamfile instead.
+        #    grep ">" !{pang_sqm}/results/01.*.fasta > contigs.bed
+        #fi
         #create tmp bams
         bam_ID=$(basename $bam .bam)
         samtools view -b -L contigs.bed --threads !{task.cpus} tmp_filtered.bam > tmp_bams/${bam_ID}.bam

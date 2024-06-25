@@ -137,7 +137,7 @@ workflow raw_to_bins {
     	summarize_bintables(ch_bintables.to_summarize)
 
     	//Concatenating fastqs and subsampling for later mapping for each singles sample
-    	subsample_reads(samples_files.to_subsamp, fastq_ch.to_subsamp.first())
+    	subsample_reads(samples_files.to_subsamp, fastq_ch.to_subsamp)
 
 
     emit:
@@ -290,21 +290,25 @@ workflow variant_calling {
 		.map { [it.getSimpleName(), it] }
 		.set { pang_sqm }
 
-    contigs_tsv
-		.map { [it.getSimpleName(), it] }
-		.set { contigs_to_downsample } //expected name of contigs_tsv is pangenome_name.contigs.tsv will fail otherwise. Add a check?	
-
     /*
     Downsampling for even coverage and filtering for bams that pass coverage and breadth criteria.
+    *//*
+    contigs_tsv.filter{ it =~/no_file.txt/ }.ifEmpty{ contigs_tsv.map { [it.getSimpleName(), it] }.set { contigs_to_downsample }
+    							//expected name of contigs_tsv is pangenome_name.contigs.tsv will fail otherwise. Add a check?
+        						downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0))
+                    }
     */
-    if ( contigs_tsv ) {
+    if ( params.contigs != null ) {
         contigs_tsv
 		.map { [it.getSimpleName(), it] }
 		.set { contigs_to_downsample } //expected name of contigs_tsv is pangenome_name.contigs.tsv will fail otherwise. Add a check?
         downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0))
     }
     else {
-        downsample_bams_merge(pang_sqm.combine(contigs_tsv)) //get the empty channel matched with each
+    	//Optional inputs for processes not yet available: https://github.com/nextflow-io/nextflow/issues/1694
+        NO_FILE = file("no_file.text")
+        contigs_tsv = Channel.fromPath(NO_FILE, type: "file")
+        downsample_bams_merge(pang_sqm.combine(contigs_tsv)) //get the empty file matched with each
     }
     
     /*
@@ -344,9 +348,8 @@ workflow {
             //Add check that the contigs have the right naming convention?
             contigs_ch = Channel.fromPath( "${params.contigs}/*.contigs.tsv" , type: "file", checkIfExists: true ) //IF THIS WASNT PROVIDED, USE WHOLE FASTA. How do?
         }
-        else {
-            //Not sure how to do this. Can I make an empty channel? Can I make a value?
-            contigs_ch = channel.empty() //seems like I cant make optional inputs yet. https://github.com/nextflow-io/nextflow/issues/1694 
+        else {	
+            contigs_ch = Channel.empty() //Channel.fromPath("no_file.txt", type: "file")
         }
         
         if ( params.subsample == true ) {
