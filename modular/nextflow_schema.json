@@ -5,8 +5,8 @@
   "description": "",
   "type": "object",
   "definitions": {
-    "alternative_entrypoints": {
-      "title": "Alternative entrypoints",
+    "alternative_entry_exit_points": {
+      "title": "Alternative entry-/exit-points",
       "type": "object",
       "description": "",
       "default": "",
@@ -29,6 +29,11 @@
           "type": "string",
           "help_text": "A tsv with contig names and length, named <ref_genome.contigs.tsv> specifying the contigs you're interested in SNP analysis for.",
           "description": "TSV with contig names that you want to use for variant calling. If not provided will use whole reference fasta genome when starting from ref_genomes. Otherwise ignored."
+        },
+        "run_VC": {
+          "type": "boolean",
+          "default": true,
+          "description": "If false stops the pipeline after assembling pangenomes."
         }
       }
     },
@@ -169,7 +174,8 @@
         "binners": {
           "type": "string",
           "default": "maxbin,metabat2,concoct",
-          "description": "Choose which binners to use when assembling"
+          "description": "Choose which binners to use when assembling",
+          "help_text": "Options are maxbin, metabat2 and concoct. By default the pipeline combines the results of all three. To use just one write --binners <tool>"
         }
       }
     },
@@ -207,7 +213,7 @@
   },
   "allOf": [
     {
-      "$ref": "#/definitions/alternative_entrypoints"
+      "$ref": "#/definitions/alternative_entry_exit_points"
     },
     {
       "$ref": "#/definitions/pangenome_parameters"

@@ -401,13 +401,15 @@ workflow {
 	core_ch.multiMap { it -> to_map: to_variants: it }.set { core_ch }
     	match_samps_to_pang(core_ch.to_map, sub_reads, readcounts)
     }
-    if ( params.subsample == true) {
-    	//Use only the samples with estimated good coverage from the subsampled reads.
-    	variant_calling(NBPs_ch, match_samps_to_pang.out.pang_samples, contigs_ch)
-    	}
-    else if (params.force_variant_calling == true) {
-    	//Using the full read files/all samples to map reads.
-    	variant_calling(NBPs_ch, Channel.fromPath(params.samples, type: "file", checkIfExists: true), contigs_ch)
+    if ( params.run_VC == true ) {
+    	if ( params.subsample == true ) {
+    		//Use only the samples with estimated good coverage from the subsampled reads.
+    		variant_calling(NBPs_ch, match_samps_to_pang.out.pang_samples, contigs_ch)
+    		}
+    	else if (params.force_variant_calling == true) {
+    		//Using the full read files/all samples to map reads.
+    		variant_calling(NBPs_ch, Channel.fromPath(params.samples, type: "file", checkIfExists: true), contigs_ch)
+    		}
     	}
 }
 
