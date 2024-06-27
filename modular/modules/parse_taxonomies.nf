@@ -58,17 +58,22 @@ process parse_taxonomies {
     tax_short = ["d__", "p__","c__","o__","f__","g__","s__"]
     all_bintables.replace(to_replace=tax_short, value="Unclassified", inplace=True)
     if rank_param == "auto":
+        #Use only good quality bins to determine rank
         #find lowest rank with more than 90% classified bins and change rank_param to that
-        print("Selected rank: auto. Finding lowest well classified rank.")
+        print("Selected rank: auto. Finding lowest well classified rank among good quality bins.")
+        good_qual = all_bintables[(all_bintables["Completeness"] > !{params.MAGcomplete}) & (all_bintables["Contamination"] < !{params.MAGcontam})].copy()
         rank_not_selected = True
         i = 8
-        tot_bins = len(all_bintables)
+        tot_bins = len(good_qual)
         while rank_not_selected:
-            print(f"Checking unclassified proportion in {ranks[i]}.")
+            proportion = 0
+            if good_qual[ranks[i]].str.contains('Unclassified').any():
+                proportion = good_qual[ranks[i]].value_counts()["Unclassified"]/tot_bins
+            print(f"The unclassified proportion in {ranks[i]} is {proportion*100}%.")
             if i == 2:
                 rank_param = "root" #no lower classification was good enough quality
                 rank_not_selected = False
-            elif all_bintables[ranks[i]].value_counts()["Unclassified"]/tot_bins < 0.1:
+            elif proportion < 0.1:
                 rank_param = ranks[i]
                 rank_not_selected = False
             else:
