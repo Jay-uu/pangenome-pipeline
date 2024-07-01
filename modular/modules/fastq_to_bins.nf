@@ -6,6 +6,7 @@ process fastq_to_bins {
     publishDir "${params.project}/bins/fastas", mode: "copy", pattern: "${sample.baseName}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }
     publishDir "${params.project}/bins/bintables", mode: "copy", pattern: "${sample.baseName}/results/18.*.bintable", saveAs: { filename -> "${sample.baseName}.bintable" }
     label "no_label"
+    label "high_mem"
     tag "${sample.baseName}"
     input:
     path(sample)
