@@ -9,6 +9,7 @@ Output:
 process pang_to_bams {
     publishDir "${params.project}/mOTUs/results/${pang_ID}/pangenome", mode: "copy", pattern: "${pang_ID}.zip"
     label "no_label"
+    label "high_mem"
     tag "${pang_ID}"
     input:
     tuple(val(pang_ID), path(pang_fasta), path(samples))
