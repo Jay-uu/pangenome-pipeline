@@ -6,7 +6,7 @@ process classify_bins {
     projname = file("${params.project}").baseName
     publishDir "${params.project}/bins/bintables", mode: "copy", pattern: "${sample.baseName}/results/18.*.bintable", saveAs: { filename -> "${projname}.bintable" }
     publishDir "${params.project}/bins/fastas", mode: "copy", pattern: "${sample.baseName}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }
-    label "no_label"
+    label "classify_bins"
     tag "${sample.baseName}"
     input:
     path(sample)

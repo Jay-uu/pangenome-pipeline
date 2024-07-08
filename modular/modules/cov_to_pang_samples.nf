@@ -14,6 +14,7 @@ Output:
 */
 process cov_to_pang_samples {
     label "low_cpu"
+    label "cov_to_pang_samples"
     tag "All_mOTUs"
     publishDir "${params.project}/mOTUs", mode: "copy", pattern: "*.*.tsv"
     publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}

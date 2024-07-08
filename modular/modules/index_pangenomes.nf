@@ -6,7 +6,7 @@ or the base pangenome name + "_consensus" if there was no core genome.
 This is separate from map_subset, since each pangenome only needs to be indexed once but will likely have multiple samples mapped to it.
 */
 process index_pangenomes {
-    label "no_label"
+    label "index_pangenomes"
     tag "${pangenome_dir}.baseName"
     input:
     path(pangenome_dir)

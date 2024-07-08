@@ -8,7 +8,7 @@ Output:
 */
 process pang_to_bams {
     publishDir "${params.project}/mOTUs/results/${pang_ID}/pangenome", mode: "copy", pattern: "${pang_ID}.zip"
-    label "no_label"
+    label "pang_to_bams"
     label "high_mem"
     tag "${pang_ID}"
     input:

@@ -3,6 +3,7 @@
 
 process tuplify_samp_fastqs {
     label "low_cpu"
+    label "tuplify_samp_fastqs"
     tag "${sample.baseName}"
     input:
     path(sample)

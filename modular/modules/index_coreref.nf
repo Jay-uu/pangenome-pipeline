@@ -6,6 +6,7 @@ This is separate from map_subset, since each pangenome only needs to be indexed 
 */
 process index_coreref {
     label "low_cpu"
+    label "index_coreref"
     tag "${fasta.baseName}"
     input:
     path(fasta)

@@ -12,7 +12,7 @@ Output:
 process calc_pang_div {
     publishDir "${params.project}/mOTUs/results/${pang_ID}/pangenome/pogenom", mode: "copy"
     errorStrategy "ignore"
-    label = "no_label"
+    label = "calc_pang_div"
     tag "${pang_ID}"
     input:
     tuple(val(pang_ID), path(vcf), path(gff), path(genome))

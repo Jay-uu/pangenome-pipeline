@@ -9,7 +9,7 @@ process mOTUs_to_pangenome {
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome", mode: "copyNoFollow",  pattern: "pangenomes/${mOTU_dir}", saveAs: { filename -> "superpang/" }
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copyNoFollow", pattern: "bins"
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome/superpang/", mode: "copy", pattern: "*contigs.tsv"
-    label "no_label"
+    label "mOTUs_to_pangenome"
     tag "${mOTU_dir.baseName}"
     input:
     tuple(path(mOTU_dir), path(bintable))

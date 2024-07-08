@@ -8,7 +8,7 @@ The downsampling shell code is modified from POGENOM's Input_pogenom pipeline by
 See here: https://github.com/EnvGen/POGENOM/blob/master/Input_POGENOM/src/cov_bdrth_in_dataset.sh
 */
 process downsample_bams_merge {
-    label "no_label"
+    label "downsample_bams_merge"
     tag "${pang_id}"
     input:
     tuple(val(pang_id), path(pang_sqm), path(contigs_tsv))

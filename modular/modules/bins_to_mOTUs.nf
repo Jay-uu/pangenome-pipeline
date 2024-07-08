@@ -9,6 +9,7 @@ process bins_to_mOTUs {
     publishDir "${params.project}/mOTUs/mOTUlizer", mode: "copy", pattern: "*_similarities.txt", saveAs: { filename -> "${tax_dir}" - "_bins" + "/" + filename }
     publishDir "${params.project}/mOTUs/mOTUlizer", mode: "copy", pattern: "*_mOTUs.tsv", saveAs: { filename -> "${tax_dir}" - "_bins" + "/" + filename }
     label "low_cpu"
+    label "bins_to_mOTUs"
     tag "${tax_dir.simpleName}"
     input:
     path(tax_dir)
