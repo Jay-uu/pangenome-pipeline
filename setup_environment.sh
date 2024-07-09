@@ -4,9 +4,22 @@ echo "=====Creating squeezemeta environment====="
 #mamba activate squeezemeta
 
 echo "=====Configuring database====="
-#configure_nodb.pl /home/fer/Data/ssd/SQM/db
-configure_nodb.pl /proj/fume/databases/SqueezeMeta/220723/db
+#configure_nodb.pl /home/fer/Data/ssd/SQM/db #Cass
+configure_nodb.pl /proj/fume/databases/SqueezeMeta/220723/db #Uppmax
+#configure_nodb.pl /cfs/klemming/projects/supr/fume/databases/SqueezeMeta/230903/db #Dardel
 
+
+echo "=====Configuring Checkm2 database====="
+export CHECKM2DB="/data/jay/databases/CheckM2_database/CheckM2_database" #Cass
+export CHECKM2DB="/cfs/klemming/projects/supr/fume/databases/checkm2/CheckM2_database" #Dardel
+export CHECKM2DB="/crex/proj/fume/nobackup/private/jay/dbs/CheckM2_database" #Uppmax
+
+
+
+
+
+
+#these steps are now unnecessary
 echo "=====Installing nextflow====="
 mamba install -c bioconda nextflow 
 mamba update nextflow
