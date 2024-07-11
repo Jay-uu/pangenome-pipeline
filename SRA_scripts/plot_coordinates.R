@@ -8,15 +8,15 @@ library(rnaturalearthdata)
 library(sf)
 library(mapview)
 library(ggplot2)
-ta = read.table('accessions_coordinates.csv', sep=',', header=T, row.names=1)
-ta2 = read.table("sra_data.csv", header=T, sep=',', row.names=2, quote='"', comment.char='', as.is=T)
+ta = read.table('results/accessions_coordinates.csv', sep=',', header=T, row.names=1)
+ta2 = read.table("results/sra_data.csv", header=T, sep=',', row.names=2, quote='"', comment.char='', as.is=T)
 all(rownames(ta) %in% rownames(ta2)) # TRUE
 
 #count how many have geotags
 ta2[ta2==''] = NA
 gps=colnames(ta2)[grepl('gps|ongitude|atitude|other_gps_coordinates|lat_lon', colnames(ta2))]
-ta2 = ta2[,gps]
-table(rowSums(!is.na(ta2))>0) # 9281 F 603 T
+ta3 = ta2[,gps]
+table(rowSums(!is.na(ta3))>0) #F206 T14421
 
 
 
@@ -27,7 +27,20 @@ ta$study = ta2[rownames(ta),'study']
 ta$title = ta2[rownames(ta),'Title']
 ta$collection_date = ta2[rownames(ta),'collection_date']
 
-samples_sf = st_as_sf(ta, coords = c("Longitude", "Latitude"),  crs = 4326)
+missing_coordinates = ta[is.na(ta$Longitude) | is.na(ta$Latitude), ]
+colnames(ta)[ apply(ta, 2, anyNA) ] #'contact_name''sample_name''collection_date'
+missing_something = ta[!complete.cases(ta), ]
+nrow(missing_something) #1065
+
+#Idea: convert to long and lat cols to numeric in new df, find which rows get NAs, compare with ta
+#num_long = as.numeric(ta$Longitude)
+numeric_ta = transform(ta, Longitude = as.numeric(Longitude), Latitude = as.numeric(Latitude))
+lat_nas = numeric_ta[is.na(numeric_ta$Latitude), ]
+long_nas = numeric_ta[is.na(numeric_ta$Longitude), ]
+all(rownames(lat_nas) %in% rownames(long_nas)) #True, so same ones have errors with both coordinate values.
+bef_conv = ta[rownames(lat_nas), ]
+
+samples_sf = st_as_sf(ta, coords = c("Longitude", "Latitude"),  crs = 4326, na.fail = FALSE)
 options(browser = 'firefox')
 mapviewOptions(fgb = FALSE)
 mapview(samples_sf, zcol='bases')
