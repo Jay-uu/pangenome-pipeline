@@ -44,12 +44,12 @@ if (workflow.resume == false) {
 
 println "The subsample parameter is set to ${params.subsample}"
 if (params.subsample == false) {
-	//Currently we want to allow the subsampling to run 
+	//Currently we want to allow skipping subsampling for any entry
 	//if (params.bins == null) {
 	//    throw new Exception("Skipping subsampling is only allowed for the bin entry. Please provide a directory with --bins <path/to/dir> or set --subsample <true>.")
 	//}
-	if (params.readcount == null) {
-	    throw new Exception("When skipping subsampling a tab delimited readcount file with Sample, Nr_fastqs, Total_reads needs to be provided with --readcount <path/to/file>")
+	if (params.bins != null && params.readcount == null) {
+	    throw new Exception("When skipping subsampling and using already constructed bins a tab delimited readcount file with Sample, Nr_fastqs, Total_reads needs to be provided with --readcount <path/to/file>")
 	    //file format Sample  Nr_fastqs       Total_reads
 	    //MAYBE UPDATE TO NOT REQUIRE NR_FASTQS BECAUSE IT'S OBSOLETE NOW
 	}
@@ -290,18 +290,10 @@ workflow variant_calling {
 		.map { [it.getSimpleName(), it] }
 		.set { pang_sqm }
 
-    /*
-    Downsampling for even coverage and filtering for bams that pass coverage and breadth criteria.
-    *//*
-    contigs_tsv.filter{ it =~/no_file.txt/ }.ifEmpty{ contigs_tsv.map { [it.getSimpleName(), it] }.set { contigs_to_downsample }
-    							//expected name of contigs_tsv is pangenome_name.contigs.tsv will fail otherwise. Add a check?
-        						downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0))
-                    }
-    */
     if ( params.contigs != null ) {
         contigs_tsv
 		.map { [it.getSimpleName(), it] }
-		.set { contigs_to_downsample } //expected name of contigs_tsv is pangenome_name.contigs.tsv will fail otherwise. Add a check?
+		.set { contigs_to_downsample }
         downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0))
     }
     else {
@@ -346,7 +338,9 @@ workflow {
         
         if ( params.contigs != null ) {
             //Add check that the contigs have the right naming convention?
-            contigs_ch = Channel.fromPath( "${params.contigs}/*.contigs.tsv" , type: "file", checkIfExists: true ) //IF THIS WASNT PROVIDED, USE WHOLE FASTA. How do?
+	    //So here the contigs.tsv needs to match the name of the reference genome, because it needs to be matched
+	    //to the right one later... Do it differently?? It feels bad to expect the VC entry to only accept one genome
+            contigs_ch = Channel.fromPath( "${params.contigs}/*.contigs.tsv" , type: "file", checkIfExists: true ) //IF THIS WASNT PROVIDED, USE WHOLE FASTA.
         }
         else {	
             contigs_ch = Channel.empty() //Channel.fromPath("no_file.txt", type: "file")
@@ -410,6 +404,9 @@ workflow {
     		//Using the full read files/all samples to map reads.
     		variant_calling(NBPs_ch, Channel.fromPath(params.samples, type: "file", checkIfExists: true), contigs_ch)
     		}
+	else {
+		throw new Exception("It seems you're trying to run the variant calling workflow without subsampling. If you're sure about doing this, make sure to set --force_variant_calling to true.")
+		}
     	}
 }
 

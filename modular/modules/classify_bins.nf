@@ -20,7 +20,8 @@ process classify_bins {
     echo "The sample file is !{sample.baseName}, the fastq dir is !{fastq_dir}, and the bins dir is !{in_bins}"
     SAMPLE_ID="!{sample.baseName}"
     SqueezeMeta.pl -m coassembly -f !{fastq_dir} -s !{sample} -p $SAMPLE_ID --extbins !{in_bins} --gtdbtk -test 1 -t !{task.cpus}
-    17.checkM_batch.pl $SAMPLE_ID/
+    #17.checkM_batch.pl $SAMPLE_ID/
+    17.checkbins.pl $SAMPLE_ID/
     18.getbins.pl $SAMPLE_ID/
     '''
 }
