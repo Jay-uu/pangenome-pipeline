@@ -5,7 +5,7 @@ echo "=====Creating squeezemeta environment====="
 
 echo "=====Configuring database====="
 #configure_nodb.pl /home/fer/Data/ssd/SQM/db #Cass
-configure_nodb.pl /proj/fume/databases/SqueezeMeta/220723/db #Uppmax
+configure_nodb.pl /proj/fume/databases/SqueezeMeta/230903/db/ #Uppmax
 #configure_nodb.pl /cfs/klemming/projects/supr/fume/databases/SqueezeMeta/230903/db #Dardel
 
 
