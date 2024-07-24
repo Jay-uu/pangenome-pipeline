@@ -134,16 +134,81 @@ These have strange locations. Checking manually.
 [5] coordinates are likely completely off, and also likely seawater
 [6] "sendiment" and ocean coordinates. Dont trust it.
 [7] supposedly drinking water (from China?) but location is sea outside singapore, and I can't find more info. Disregarding.
-[8]
+[8] same as [0]. Oh, because they're the same ID....
+[9] supposed to be river in San Diego, but coordinates are in the pacific ocean right outside it... Might just be approximate. 
+Tijuana River kinda close. But same study also has seawater samples. Hard one. Leave as is? Remove? Change lat to 32.55 and long to -117.1 to point at approx. Tijuana river?
+[10] dont trust it, completely off. Including misspeling of metagenomics. "metagenimics"
+[11] Drinking water from Hong kong, cant find more info. Cooridnates point to ocean in singapore. Removing.
+[12] skin? brain? not water at least. Removing.
+[13] estuary, can keep for now. Column: taxon.
+[14] estuary, can keep
+[15] estuary
+[16] south china sea, but classified as freshwater. Removing. Supposedly drinking water.
+[17] classified as freshwater, but description is duck feces and environment, and location is the south china sea.  Removing.
+[18] ballast water. Removing.
+[19] says reservoir, but coords is in sea/ocean. It is in right are of world though... Removing. 
+[20]
 """
-mystery_loc = ["DRR095146", "SRR6370751", "SRR10066355", "SRR3820960", "SRR8003412", "SRR24075716", "SRR26197971", "SRR6986811", "DRR095146", "ERR4702269 ",
+mystery_loc = ["DRR095146", "SRR6370751", "SRR10066355", "SRR3820960", "SRR8003412", "SRR24075716", "SRR26197971", "SRR6986811", "DRR095146", "ERR4702269",
                "SRR24075715", "SRR6797150", "SRR24991626", "SRR20245410", "SRR20245412", "SRR15213102", "SRR6797136", "SRR19631146", "SRR17478312",
-              "SRR19503657", ]
-not_fresh = ["SRR6370751", "SRR3820960", "SRR8003412", "SRR24075716", "SRR26197971", "SRR6986811"]
+              "SRR19503657", "SRR11267126", "SRR6797128", "SRR17405562", "DRR095147", "SRR3534995", "SRR3820958", "SRR8040758", "SRR24075714", "SRR2138582", ]
+
+#how to check example:
+merge.loc[mystery_loc[15]]
+id_coord.loc[mystery_loc[15]]
+merge.loc[mystery_loc[15]]["taxon"]
+
+#How check specific studies example:
+#merge[merge.apply(lambda r: r.str.contains('Amazon Continuum Metagenomes').any(), axis=1)] #any column
+merge.loc[merge["study"]=="Amazon Continuum Metagenomes"]
+id_coord.loc[merge.loc[merge["study"]=="Amazon Continuum Metagenomes"].index]
+
+#Microbial metagenome of suspended particulate matter in the Pearl River Estuary
+#"the freshwater extending as far as 55 km offshore" https://www.nature.com/articles/s41467-023-39507-0. Not sure where shore starts, but from
+#the inner location Xiahuipai to the bridge it's less than 55, and the coordinates are somewhere in the middle. Keeping these samples.
+#Metagenomic sequencing at PRE are also Pearl River estuary. Some are within the 55km and some outside. I can list the ones that are outside to remove.
+pearl_river_ovr55 = ["SRR15213101", "SRR15213102", "SRR15213103", "SRR15213104"]
+
+#amazon continuum are seawater samples
+amazon_co = id_coord.loc[merge.loc[merge["study"]=="Amazon Continuum Metagenomes"].index].index.to_list()
+
+#Rongjiang River and South China Sea Raw sequence reads
+#maybe using the outer bridge as a freshwater border? https://link.springer.com/article/10.1007/s12237-021-00981-8 according to this there's saltwater intrusion happening but oh well, I need to choose something.
+rongjiang = id_coord.loc[merge.loc[merge["study"]=="Rongjiang River and South China Sea Raw sequence reads"].index]
+#rongjiang[["Longitude", "Latitude"]] = rongjiang[["Longitude", "Latitude"]].apply(pd.to_numeric)
+#rongjiang.sort_values(by=["Latitude", "Longitude"])
+rongjiang_not_fresh = ["SRR21201134", "SRR21201132", "SRR21201130", "SRR21201110", "SRR21201129", "SRR21201128", "SRR21201119", "SRR21201127",
+                      "SRR21201126", "SRR21201117", "SRR21201121", "SRR21201125", "SRR21201118", "SRR21201124", "SRR21201122", "SRR21201123"]
+
+#Metagenomic exploration of antibiotic resistance genes and their hosts in aquaculture waters of Dongshan Bay (China)
+#I think it is technically marine, but there is a mix with freshwater and both brackish and freshwater species of phytoplankton has been found
+#so maybe other interesting bacteria too? altough all of these samples are kinda close to the outer part of the bay, but close to land. So I'll just remove them.
+dongshan = id_coord.loc[merge.loc[merge["study"]=="Metagenomic exploration of antibiotic resistance genes and their hosts in aquaculture waters of Dongshan Bay (China)"].index].index.to_list()
+
+#oil metagenome Raw sequence reads
+#seems to be related to some industrial thing
+oil = id_coord.loc[merge.loc[merge["study"]=="oil metagenome Raw sequence reads"].index].index.to_list()
+
+#wetland microbial community structure and function diversity
+#classified as aquatic, but is wetland. Removing
+wmc = id_coord.loc[merge.loc[merge["study"]=="wetland microbial community structure and function diversity"].index].index.to_list()
+
+#study = Mine wastewater metagenomics
+#study = 	mining impacted wastewater
+#study 	Black Sea metagenomic datasets from 5, 30, 150 and 750 m depths Raw sequence reads
+#	BLACK-OMICS: Black Sea metagenomics
+#
+
+not_fresh = [mystery_loc[1], mystery_loc[3], mystery_loc[4], mystery_loc[5], mystery_loc[6], mystery_loc[7], mystery_loc[10], mystery_loc[11],
+             mystery_loc[12], mystery_loc[16], mystery_loc[17], mystery_loc[18], mystery_loc[19]] + amazon_co + pearl_river_ovr55 + \
+            rongjiang_not_fresh + dongshan + oil + wmc
 id_coord = id_coord.drop(index=not_fresh)
 
-#check the ones where study = "Jiulong River 201209-201306 Metagenome", the coordinates are completely off., also study = Amazon Continuum Metagenomes,
-# and 	Microbial metagenome of suspended particulate matter in the Pearl River Estuary, Metagenomic sequencing at PRE, Rongjiang River and South China Sea Raw sequence reads, 	Metagenomic exploration of antibiotic resistance genes and their hosts in aquaculture waters of Dongshan Bay (China), oil metagenome Raw sequence reads
+#fix mystery_loc 0 and jiulong river, the coordinates were put as western longitude when it should be eastern longitude. Convert to positive.
+jiulong_id = merge.loc[merge["study"]=="Jiulong River 201209-201306 Metagenome"].index
+rev_lon = [mystery_loc[0]] + jiulong_id.to_list()
+for lon in rev_lon:
+    id_coord.loc[lon]["Longitude"] = id_coord.loc[lon]["Longitude"].split("-")[1]
 
 #save accessions and latitudes and longitudes to csv
 id_coord.to_csv('/home/jay/pangenome-pipeline/SRA_scripts/results/accessions_coordinates.csv', encoding='utf-8')
