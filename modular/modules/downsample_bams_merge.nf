@@ -14,6 +14,7 @@ process downsample_bams_merge {
     tuple(val(pang_id), path(pang_sqm), path(contigs_tsv))
     output:
     tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam"), optional: true, emit: ref_merged)
+    path("NOT_PASSED.txt"), optional: true, emit: not_passed_message
     shell:
     '''
     if [ !{params.contigs} == null ]; then
@@ -100,6 +101,7 @@ process downsample_bams_merge {
     echo "Checking mergeable"
     if [ -z "$(ls -A !{pang_sqm}_mergeable)" ]; then
          echo "No sample fit the alignment criteria. Skipping further analysis for !{pang_sqm}"
+         cat "WARNING: No sample fit the alignment criteria for !{pang_sqm}. If you want to do analyze this sample further try lowering --min_median_cov and/or --min_breadth." > NOT_PASSED.txt
     else
         echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over !{params.min_contig_len} bases."
         ls !{pang_sqm}_mergeable/*.bam > bamlist.txt #*/

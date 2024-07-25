@@ -253,7 +253,8 @@ workflow match_samps_to_pang {
     */
     sample_file = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
     cov_to_pang_samples(map_subset.out.coverage.collect(), sample_file.first(), readcounts.collect())
-    cov_to_pang_samples.out.pang_samples.flatten().map { [it.getSimpleName(), it] }.set { pang_samples }
+    cov_to_pang_samples.out.not_passed_message.map { it.text.strip() }.view() //This file only gets created if not enough samples, meaning the text only gets printed if pipeline stops here.
+    cov_to_pang_samples.out.pang_samples.flatten().map { [it.getSimpleName(), it] }.set { pang_samples } //if no pang_samples pipeline stops here, but results from cov_to_pang_samples still get published
     
     emit:
     pang_samples = pang_samples //channel: [val(ID), path(ID.samples)]
@@ -302,6 +303,8 @@ workflow variant_calling {
         contigs_tsv = Channel.fromPath(NO_FILE, type: "file")
         downsample_bams_merge(pang_sqm.combine(contigs_tsv)) //get the empty file matched with each
     }
+    
+    downsample_bams_merge.out.not_passed_message.map { it.text.strip() }.view()
     
     /*
     Running freebayes on the merged bam to get a filtered vcf file.

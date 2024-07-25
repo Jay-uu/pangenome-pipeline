@@ -16,17 +16,19 @@ process cov_to_pang_samples {
     label "low_cpu"
     label "cov_to_pang_samples"
     tag "All_mOTUs"
-    publishDir "${params.project}/mOTUs", mode: "copy", pattern: "*.*.tsv"
-    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}
-    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "samples/*.samples", saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getSimpleName()}.samples"}
+    publishDir "${params.project}/mOTUs", mode: "copy", pattern: "*.*.tsv", failOnError: false
+    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", failOnError: false, saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}
+    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "samples/*.samples",failOnError: false, saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getSimpleName()}.samples"}
     input:
     path(coverage)
     path(samples_file)
     path(readcounts)
     output:
     path("*.*.tsv", emit: pang_cpm_cov)
-    path("samples/*.samples", emit: pang_samples)
+    path("samples/*.samples", optional: true, emit: pang_samples)
     path("pangenome/*.tsv"), emit: individual_pang_cov
+    path("NONE_PASSED.txt"), optional: true, emit: not_passed_message
+    
     shell:
     $/
     #!/usr/bin/env python
@@ -113,9 +115,12 @@ process cov_to_pang_samples {
             print(f"Creating new samples file for {pang_id}")
             new_samp_df = samples_df.query('sample in @ovr_thresh')
             new_samp_df.to_csv(f"samples/{pang_id}.samples", header=False, index=None, sep='\t')
-            
+
+    #This allows the process to finish and publish results, but still printing why the pipeline stops if no pangenomes pass the thresholds
     if len(glob.glob(f"samples/*.samples")) < 1:
-        raise Exception("It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --min_median_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or perhaps using more samples.")
+        with open("NONE_PASSED.txt", "w") as outfile:
+            outfile.write("WARNING: It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --min_median_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or perhaps using more samples.")
+
    
     /$
 }
