@@ -70,7 +70,7 @@ process cov_to_pang_samples {
     for file in cov_files:
         print(f"Reading {file}")
         pang_id = file.split("_sub_",1)[0]
-        samp_name = file.split("sub_",1)[1].split("_")[0]
+        samp_name = file.split("sub_",1)[1].split("_coverage.tsv")[0]
         header = ["Name", "Position", "Depth"] #samtools depth format
         cov = pd.read_csv(file, sep="\t", names=header)
         tot_reads = readcount[readcount["Sample"]==samp_name]["Total_reads"].item()
