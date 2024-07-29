@@ -55,8 +55,8 @@ if (params.subsample == false) {
 	}
     }
     
-if (params.bins != null && params.ref_genomes != null) {
-	throw new Exception("You can either provide pre-assembled bins or previously created reference genomes, but not both. Please use either the --bins flag or the --ref_genomes flag. ")
+if (params.bins != null && params.ref_genome != null) {
+	throw new Exception("You can either provide pre-assembled bins or previously created reference genomes, but not both. Please use either the --bins flag or the --ref_genome flag. ")
 }
 // import modules
 //maybe later I will move the workflows into separate files and only import the necessary modules for that workflow
@@ -291,19 +291,22 @@ workflow variant_calling {
 		.map { [it.getSimpleName(), it] }
 		.set { pang_sqm }
 
-    if ( params.contigs != null ) {
-        contigs_tsv
-		.map { [it.getSimpleName(), it] }
-		.set { contigs_to_downsample }
-        downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0))
-    }
-    else {
+    //If using reference genome, either give empty file if no contigs were provided, or use the contigs_tsv
+    if ( params.ref_genome != null ) {
+        if ( params.contigs == null ) {
     	//Optional inputs for processes not yet available: https://github.com/nextflow-io/nextflow/issues/1694
         NO_FILE = file("no_file.text")
         contigs_tsv = Channel.fromPath(NO_FILE, type: "file")
-        downsample_bams_merge(pang_sqm.combine(contigs_tsv)) //get the empty file matched with each
+        }
+        downsample_bams_merge(pang_sqm.combine(contigs_tsv))
     }
-    
+    else {
+	contigs_tsv
+                .map { [it.getSimpleName(), it] }
+                .set { contigs_to_downsample }
+        downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0))
+    }
+
     downsample_bams_merge.out.not_passed_message.map { it.text.strip() }.view()
     
     /*
@@ -328,22 +331,19 @@ workflow {
     If the user provided a dir with reference genomes, the pipeline will only run 
     the map_and_detect_variants workflow.
     */
-    if ( params.ref_genomes != null ) {
-        Channel.fromPath( "${params.ref_genomes}/*.{fasta, fa}" , type: "file", checkIfExists: true ).multiMap { it -> core: NBPs: it }.set { ref_gens }
+    if ( params.ref_genome != null ) {
+        Channel.fromPath( "${params.ref_genome}" , type: "file", checkIfExists: true ).multiMap { it -> core: NBPs: it }.set { ref_gen }
         /*
         When using a reference genome we don't have core and consensus,
         therefore handling the reference as both.
         This means that the whole genome is used both for mapping a subset of the reads,
         and for the variance analysis.
         */
-        core_ch = ref_gens.core
-        NBPs_ch = ref_gens.NBPs
+        core_ch = ref_gen.core
+        NBPs_ch = ref_gen.NBPs
         
         if ( params.contigs != null ) {
-            //Add check that the contigs have the right naming convention?
-	    //So here the contigs.tsv needs to match the name of the reference genome, because it needs to be matched
-	    //to the right one later... Do it differently?? It feels bad to expect the VC entry to only accept one genome
-            contigs_ch = Channel.fromPath( "${params.contigs}/*.contigs.tsv" , type: "file", checkIfExists: true ) //IF THIS WASNT PROVIDED, USE WHOLE FASTA.
+            contigs_ch = Channel.fromPath( "${params.contigs}" , type: "file", checkIfExists: true ) //IF THIS WASNT PROVIDED, USE WHOLE FASTA.
         }
         else {	
             contigs_ch = Channel.empty() //Channel.fromPath("no_file.txt", type: "file")

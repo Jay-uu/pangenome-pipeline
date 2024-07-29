@@ -17,8 +17,8 @@ process downsample_bams_merge {
     path("NOT_PASSED.txt"), optional: true, emit: not_passed_message
     shell:
     '''
-    if [ !{params.contigs} == null ]; then
-    #create a contigs tsv will all contigs and bed
+    if [ ! -s !{contigs_tsv} ]; then
+        #create a contigs tsv will all contigs and bed
         #required fields: name, start, length
         bam=$(ls !{pang_sqm}/data/bam/*.bam | head -n1) #*/ comment is for editor purposes
         echo "Using ${bam} to create contigs.bed, since no selected contigs were provided."
@@ -36,8 +36,10 @@ process downsample_bams_merge {
     do
 	echo "Filtering ${bam} alignments for selected contigs"
         #Filter to select only paired reads (-f 2) and avoids optical duplicates (-F 1024)
-        samtools view -Sbh -F 1024 -q 20 --threads !{task.cpus} $bam > tmp_filtered.bam
-        samtools index tmp_filtered.bam
+        samtools index ${bam}
+        bam_ID=$(basename $bam .bam)
+        samtools view -Sbh -F 1024 -q 1 -L contigs.bed --threads !{task.cpus} $bam > tmp_bams/${bam_ID}.bam
+        #samtools index tmp_filtered.bam
         
         #if test -f *contigs.tsv; then
         #    awk ' { print $1, 1, $2} ' !{contigs_tsv} > contigs.bed #get input contigs.tsv instead
@@ -46,23 +48,23 @@ process downsample_bams_merge {
         #    grep ">" !{pang_sqm}/results/01.*.fasta > contigs.bed
         #fi
         #create tmp bams
-        bam_ID=$(basename $bam .bam)
-        samtools view -b -L contigs.bed --threads !{task.cpus} tmp_filtered.bam > tmp_bams/${bam_ID}.bam
+        #bam_ID=$(basename $bam .bam)
+        #samtools view -b -L contigs.bed --threads !{task.cpus} tmp_filtered.bam > tmp_bams/${bam_ID}.bam
     done
     
     mkdir -p !{pang_sqm}_mergeable
-    echo "Creating mpileup files and checking breadth and coverage."    
-    #create mpileup files, col 4 is number of reads at one position
+    echo "Creating depth files and checking breadth and coverage."    
+    #create depth files, col 3 is number of reads at one position
     for bam in tmp_bams/*.bam;
     do
         #mpileup command doesn't allow multithreading
         #-A for count orphans
         #samtools mpileup -A -d 1000000 -Q 15 -a $bam > tmp.mpileup
         #using samtools depth instead, newer
-        samtools depth -aa -J -s -q 1 $bam > tmp.mpileup
+        samtools depth -aa -J -s -q 1 -b contigs.bed $bam > tmp.depth
     
         # ---- arguments
-        mpileupfile=tmp.mpileup
+        #mpileupfile=tmp.mpileup
         bamfile=$bam
         outbamfile=$(basename $bam bam)subsampled.bam #name of output
         mag=!{pang_sqm} #pangenome name
@@ -73,16 +75,17 @@ process downsample_bams_merge {
         #--- Median coverage
         #col 4 has nr of reads mapped to position, only take positions where reads mapped, sort by numerical value, add to array,
         #take value in middle of array (or mean of two middle values if even nr of values) = median cov
-        #Not 100% sure why 0 positions are excluded in Input_pogenom. Their paper does say that they do it purposefully though.
+        #Not 100% sure why 0 positions are excluded in Input_pogenom. Their preprint does say that they do it purposefully though.
+        #https://www.biorxiv.org/content/10.1101/2020.03.25.999755v1.full
         #but assuming it's because they aren't actually used for variant calling and therefore irrelevant for the coverage and downsampling
         #cov=$(cut -f4 $mpileupfile | grep -vw "0" | sort -n | awk ' { a[i++]=$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
         #samtools depth has the nr of reads at position in col 3
-        cov=$(cut -f3 $mpileupfile | grep -vw "0" | sort -n | awk ' { a[i++]=$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
+        cov=$(cut -f3 tmp.depth | grep -vw "0" | sort -n | awk ' { a[i++]=$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
 
         #---breadth
         #non_zero=$(cut -f4 $mpileupfile | grep -cvw "0") #mpileup way
-        non_zero=$(cut -f3 $mpileupfile | grep -cvw "0") #depth way
-        positions=$(wc -l < $mpileupfile)
+        non_zero=$(cut -f3 tmp.depth | grep -cvw "0") #depth way
+        positions=$(wc -l < tmp.depth)
         breadth=$(echo $non_zero*100/$positions | bc -l )
 
         echo "Genome:" $mag "- Sample:" $samplename "Median_coverage of core:" $cov " breadth %:" $breadth
@@ -90,6 +93,9 @@ process downsample_bams_merge {
         #---selection of BAM files and downsample
         if (( $(echo "$breadth >= $minbreadth" | bc -l) )) && (( $(echo "$cov >= $mincov" | bc -l) )); then
             echo "Downsampling coverage to $mincov - Genome: $mag - Sample: $samplename "
+            if (( $(echo "$mincov == 0" | bc -l) )); then
+                $mincov=$cov
+            fi
             limite=$(echo "scale=3; $mincov/$cov" | bc )
             samp=$(echo "scale=3; ($limite)+10" | bc)
             samtools view -Sbh --threads !{task.cpus} -s $samp $bamfile | samtools sort -o !{pang_sqm}_mergeable/$outbamfile --threads !{task.cpus}
@@ -97,11 +103,11 @@ process downsample_bams_merge {
     done
     
     #Merge bam-files that pass the check, if more than one bam in mergeable/ #*/ what to do if no files?
-    #thoughts if at least one file in mergeable, create new fasta with only long contigs
+    #if at least one file in mergeable, create new fasta with only long contigs
     echo "Checking mergeable"
     if [ -z "$(ls -A !{pang_sqm}_mergeable)" ]; then
          echo "No sample fit the alignment criteria. Skipping further analysis for !{pang_sqm}"
-         cat "WARNING: No sample fit the alignment criteria for !{pang_sqm}. If you want to do analyze this sample further try lowering --min_median_cov and/or --min_breadth." > NOT_PASSED.txt
+         cat "WARNING: No sample fit the alignment criteria for !{pang_sqm}. If you want to analyze this sample further try lowering --min_median_cov and/or --min_breadth." > NOT_PASSED.txt
     else
         echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over !{params.min_contig_len} bases."
         ls !{pang_sqm}_mergeable/*.bam > bamlist.txt #*/
