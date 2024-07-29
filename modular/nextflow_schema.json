@@ -16,19 +16,20 @@
           "description": "Skip assembly and binning. Provide a directory with assembled bins fasta files and readcount file.",
           "help_text": "This entrypoint allows you to skip the binning step of the pipeline. You can provide already subsampled reads with --fastqs and thereby skip subsampling using --subsample false. Provide the path to a directory with all the bins you want to use. This entry-point also requires that you provide a readcount file for the samples you want to use. See --readcount -help for format."
         },
-        "ref_genomes": {
-          "type": "string",
-          "description": "A dir with .fa files as reference genomes."
-        },
         "readcount": {
           "type": "string",
           "description": "A tab-delimited file with sample, nr fastqs and total reads",
           "help_text": "E.g.\nSample Nr_fastqs Total_reads\nSample1 2 1000000\nSample2 4 2000000\netc. for each sample"
         },
+        "ref_genome": {
+          "type": "string",
+          "default": "None",
+          "description": "Path to a fasta file that you want to do variant calling with"
+        },
         "contigs": {
           "type": "string",
           "help_text": "A tsv with contig names and length, named <ref_genome.contigs.tsv> specifying the contigs you're interested in SNP analysis for.",
-          "description": "TSV with contig names that you want to use for variant calling. If not provided will use whole reference fasta genome when starting from ref_genomes. Otherwise ignored."
+          "description": "A TSV with contig names that you want to use for variant calling. If not provided will use whole reference fasta genome when starting from ref_genome. Otherwise ignored."
         },
         "run_VC": {
           "type": "boolean",
