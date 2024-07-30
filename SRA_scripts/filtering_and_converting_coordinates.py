@@ -17,7 +17,8 @@ df_sra_data = pd.read_csv(sra_data, sep=',', index_col=1, low_memory=False)
 
 #List of things to be removed from sra_data
 if True:
-    to_filter_out = ['sediment','virus', 'viral', 'virome', 'transcript', 'marine', 'filtered water', 'aquarium', '^genomic', 'seawater']
+    to_filter_out = ['sediment','virus', 'viral', 'virome', 'transcript', 'marine', 'filtered water', 'aquarium', '^genomic', 'seawater','mine', 'mining',
+                     'Black Sea', 'mottled skate']
 else:
     to_filter_out = []
 
@@ -147,21 +148,20 @@ Tijuana River kinda close. But same study also has seawater samples. Hard one. L
 [17] classified as freshwater, but description is duck feces and environment, and location is the south china sea.  Removing.
 [18] ballast water. Removing.
 [19] says reservoir, but coords is in sea/ocean. It is in right are of world though... Removing. 
-[20]
+[20] from the flesh of a fish, removing by adding to to_filter "mottled skate"
+[21] study='Tap water samples Metagenome',  gps are nonsense... Removing.
+[22] the args study, removing
+[23] w instead of e, adding to list for conversion
+[24] ocean, remove
+[25] mexican gulf, removing
+[26] estuary, but far out. likely saltwater. removing
+[27] ocean
+[28] salt water most likely
+[29] flipped coords
 """
 mystery_loc = ["DRR095146", "SRR6370751", "SRR10066355", "SRR3820960", "SRR8003412", "SRR24075716", "SRR26197971", "SRR6986811", "DRR095146", "ERR4702269",
                "SRR24075715", "SRR6797150", "SRR24991626", "SRR20245410", "SRR20245412", "SRR15213102", "SRR6797136", "SRR19631146", "SRR17478312",
-              "SRR19503657", "SRR11267126", "SRR6797128", "SRR17405562", "DRR095147", "SRR3534995", "SRR3820958", "SRR8040758", "SRR24075714", "SRR2138582", ]
-
-#how to check example:
-merge.loc[mystery_loc[15]]
-id_coord.loc[mystery_loc[15]]
-merge.loc[mystery_loc[15]]["taxon"]
-
-#How check specific studies example:
-#merge[merge.apply(lambda r: r.str.contains('Amazon Continuum Metagenomes').any(), axis=1)] #any column
-merge.loc[merge["study"]=="Amazon Continuum Metagenomes"]
-id_coord.loc[merge.loc[merge["study"]=="Amazon Continuum Metagenomes"].index]
+              "SRR19503657", "SRR11267126", "SRR6797128", "SRR17405562", "DRR095147", "SRR3534995", "SRR3820958", "SRR8040758", "SRR24075714", "SRR2138582", "DRR095148"]
 
 #Microbial metagenome of suspended particulate matter in the Pearl River Estuary
 #"the freshwater extending as far as 55 km offshore" https://www.nature.com/articles/s41467-023-39507-0. Not sure where shore starts, but from
@@ -192,21 +192,29 @@ oil = id_coord.loc[merge.loc[merge["study"]=="oil metagenome Raw sequence reads"
 #wetland microbial community structure and function diversity
 #classified as aquatic, but is wetland. Removing
 wmc = id_coord.loc[merge.loc[merge["study"]=="wetland microbial community structure and function diversity"].index].index.to_list()
+"""
+#how to check example:
+merge.loc[mystery_loc[15]]
+id_coord.loc[mystery_loc[15]]
+merge.loc[mystery_loc[15]]["taxon"]
 
-#study = Mine wastewater metagenomics
-#study = 	mining impacted wastewater
-#study 	Black Sea metagenomic datasets from 5, 30, 150 and 750 m depths Raw sequence reads
-#	BLACK-OMICS: Black Sea metagenomics
-#
+#How check specific studies example:
+#merge[merge.apply(lambda r: r.str.contains('Amazon Continuum Metagenomes').any(), axis=1)] #any column
+merge.loc[merge["study"]==study_name]
+id_coord.loc[merge.loc[merge["study"]==study_name].index]
+"""
+#I dont trust this study coordinates. Supposed to be rivers, but generally point to land. Will leave if they are within 10km of a river.
+args = merge.loc[merge["study"]=='ARGs in river water'].index.to_list()
+bad_args = [args[0], args[9], args[10], args[11]]
 
 not_fresh = [mystery_loc[1], mystery_loc[3], mystery_loc[4], mystery_loc[5], mystery_loc[6], mystery_loc[7], mystery_loc[10], mystery_loc[11],
-             mystery_loc[12], mystery_loc[16], mystery_loc[17], mystery_loc[18], mystery_loc[19]] + amazon_co + pearl_river_ovr55 + \
-            rongjiang_not_fresh + dongshan + oil + wmc
+             mystery_loc[12], mystery_loc[16], mystery_loc[17], mystery_loc[18], mystery_loc[19], mystery_loc[21], mystery_loc[24], mystery_loc[25],
+             mystery_loc[26], mystery_loc[27], mystery_loc[28]] + amazon_co + pearl_river_ovr55 + rongjiang_not_fresh + dongshan + oil + wmc + bad_args
 id_coord = id_coord.drop(index=not_fresh)
 
 #fix mystery_loc 0 and jiulong river, the coordinates were put as western longitude when it should be eastern longitude. Convert to positive.
 jiulong_id = merge.loc[merge["study"]=="Jiulong River 201209-201306 Metagenome"].index
-rev_lon = [mystery_loc[0]] + jiulong_id.to_list()
+rev_lon = [mystery_loc[0], mystery_loc[23], mystery_loc[29]] + jiulong_id.to_list() 
 for lon in rev_lon:
     id_coord.loc[lon]["Longitude"] = id_coord.loc[lon]["Longitude"].split("-")[1]
 
