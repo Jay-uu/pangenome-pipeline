@@ -320,6 +320,7 @@ workflow variant_calling {
     Run pogenom
     */
     calc_pang_div(vcf_gff_ch)
+    calc_pang_div.out.success_message.map { it.text.strip() }.view()
     
 }
 
