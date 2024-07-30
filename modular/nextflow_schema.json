@@ -23,8 +23,8 @@
         },
         "ref_genome": {
           "type": "string",
-          "default": "None",
-          "description": "Path to a fasta file that you want to do variant calling with"
+          "description": "Path to a fasta file that you want to do variant calling with",
+          "help_text": "--ref_genome path/to/fasta/file\nThis will only run the variant calling workflow (Bowtie2, Freebayes, POGENOM) for the specified reference genome. Can be used with --contigs to only check specified contigs for diversity. Only one genome allowed."
         },
         "contigs": {
           "type": "string",
@@ -34,7 +34,8 @@
         "run_VC": {
           "type": "boolean",
           "default": true,
-          "description": "If false stops the pipeline after assembling pangenomes."
+          "description": "If false stops the pipeline after assembling pangenomes.",
+          "help_text": "This parameter can be set to false to stop the pipeline after assembling pangenomes and mapping subsampled reads. Can be useful for running the pipeline in steps, and only with pangenomes of interest. "
         }
       }
     },
@@ -49,12 +50,6 @@
           "default": 5,
           "description": "Minimum number of matching samples for a pangenome to be considered for further analysis",
           "help_text": "The minimum number of samples with good average expected coverage for a pangenome to be used for downstream analysis."
-        },
-        "min_breadth": {
-          "type": "integer",
-          "default": 40,
-          "description": "Minimum breadth for a sample to a pangenome",
-          "help_text": "Breadth is based on the alignment of all of a samples reads to a pangenome. Samples that pass the median coverage and breadth checks will be downsampled for even coverage between samples, and used to analyse variants within a pangenome."
         },
         "max_contam": {
           "type": "integer",
@@ -72,15 +67,10 @@
           "description": "Number of reads to be subsampled from the raw fastq files",
           "help_text": "You can modify how many reads should be subsampled to then be used for mapping against the pangenomes/reference genomes to determine which samples have good coverage for that genome."
         },
-        "min_median_cov": {
-          "type": "integer",
-          "default": 20,
-          "description": "Minimum coverage for a sample to be used for variant calling to a pangenome"
-        },
         "min_contig_len": {
           "type": "integer",
           "default": 1000,
-          "description": "Minimum lenght of contigs used for variant calling."
+          "description": "Minimum length of contigs used for variant calling."
         }
       }
     },
@@ -104,7 +94,7 @@
         "fastq": {
           "type": "string",
           "help_text": "The path to the directory containing the raw fastq reads",
-          "description": "Fastq file directory",
+          "description": "Fastq file directory with raw reads for all samples",
           "format": "directory-path"
         },
         "threads": {
@@ -157,7 +147,8 @@
         "subsample": {
           "type": "boolean",
           "default": true,
-          "description": "Wether to subsample or not. Only available with the bin entry."
+          "description": "Whether to subsample the raw reads or not.",
+          "help_text": "Setting --subsample false means that the full raw reads will be used for checking which samples have good coverage over which pangenomes. Using the default of --subsample true is recommended, especially with many samples since that will save a lot of computation time."
         },
         "force_variant_calling": {
           "type": "boolean",
@@ -180,6 +171,32 @@
         }
       }
     },
+    "coverage_threshold": {
+      "title": "Coverage threshold",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "min_locus_cov": {
+          "type": "integer",
+          "default": 10,
+          "description": "Minimum coverage required for a specific locus to be used for diversity analysis.",
+          "help_text": "Used for running POGENOM in calc_pang_div. If a locus has too low coverage it won't be included for that sample."
+        },
+        "min_median_cov": {
+          "type": "integer",
+          "default": 20,
+          "description": "Minimum coverage for a sample to be used for variant calling to a pangenome",
+          "help_text": "Currently same parameter used for estimating average coverage of subsampled reads to a pan-/reference genome and median coverage of mapped reads to core/contigs over min_contig_length. Should be updated to min_cov."
+        },
+        "min_breadth": {
+          "type": "integer",
+          "default": 40,
+          "description": "Minimum breadth required over core/selected contigs for a sample to be used for cariant calling",
+          "help_text": "Breadth is based on the alignment of all of a samples reads to a pangenome. Samples that pass the median coverage and breadth checks will be downsampled for even coverage between samples, and used to analyse variants within a pangenome."
+        }
+      }
+    },
     "general_parameters": {
       "title": "General parameters",
       "type": "object",
@@ -196,18 +213,6 @@
           "type": "string",
           "help_text": "Information on how to use the pipeline",
           "description": "Usage help"
-        }
-      }
-    },
-    "coverage_threshold": {
-      "title": "Coverage threshold",
-      "type": "object",
-      "description": "",
-      "default": "",
-      "properties": {
-        "min_locus_cov": {
-          "type": "integer",
-          "default": 10
         }
       }
     }
@@ -232,10 +237,10 @@
       "$ref": "#/definitions/assembly"
     },
     {
-      "$ref": "#/definitions/general_parameters"
+      "$ref": "#/definitions/coverage_threshold"
     },
     {
-      "$ref": "#/definitions/coverage_threshold"
+      "$ref": "#/definitions/general_parameters"
     }
   ]
 }
