@@ -16,12 +16,15 @@ The minimum things you need to run the pipeline is:
 1. A directory with raw reads in fastq.gz format.
 2. A tab-delimited file with sample names in the first column, the name of a read file in the second column, and "pair1" or "pair2" in the third column, to signify whether the read file has forward/single reads (pair1) or reverse reads (pair2). This is referred to as tsv.samples, or samples file. Each individual Sample (column 1) may either have only paired reads or only single reads.
    Example:
-> Sample1 Sample1.fwd.fq.gz pair1\n
+```
+{
+ Sample1 Sample1.fwd.fq.gz pair1\n
 Sample1 Sample1.rev.fq.gz pair2\n
 Sample2 Sample2.R1.fastq.gz pair1\n
 Sample2 abcdefg.R1.fastq.gz pair1\n
 3. A project name. This is where your output will be stored. Make this descriptive for your own sake!
-
+}
+```
 ## Run command
 `nextflow run <path/to/modular/main.nf> --project <project_name> --samples <tsv.samples> --fastq <path/to/dir> --threads <nr>`
 
