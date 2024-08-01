@@ -18,9 +18,13 @@ The minimum things you need to run the pipeline is:
    Example:
 
  | ----------- | ----------- | ----------- |
+
  | Sample1 | Sample1.fwd.fq.gz | pair1 |
+
  | Sample1 | Sample1.rev.fq.gz | pair2 |
+
  | Sample2 | Sample2.R1.fastq.gz | pair1 |
+
  | Sample2 | abcdefg.R1.fastq.gz | pair1 |
 
 3. A project name. This is where your output will be stored. Make this descriptive for your own sake!
