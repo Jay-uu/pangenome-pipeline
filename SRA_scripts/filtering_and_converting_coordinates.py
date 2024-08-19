@@ -218,6 +218,16 @@ rev_lon = [mystery_loc[0], mystery_loc[23], mystery_loc[29]] + jiulong_id.to_lis
 for lon in rev_lon:
     id_coord.loc[lon]["Longitude"] = id_coord.loc[lon]["Longitude"].split("-")[1]
 
+#Removing columns with missing data for final samples with accepted coordinates
+final_candidates = merge.loc[id_coord.index]
+missing_info = final_candidates.columns[final_candidates.isna().any()].tolist()
+all_info = final_candidates.columns[~final_candidates.isna().any()].tolist()
+to_remove = ["coordinates", "Latitude and longitude", "longitude", "latitude", "geographic location (longitude)", "geographic location (latitude)",
+            "lat_lon"]
+final_cols = [x for x in all_info if x not in to_remove]
+filtered_coords = pd.merge(id_coord, final_candidates[final_cols], left_index=True, right_index=True)
+#save to file
+filtered_coords.to_csv('/home/jay/pangenome-pipeline/SRA_scripts/results/freshwater_filtered_coordinates.csv', encoding='utf-8')
 #save accessions and latitudes and longitudes to csv
 id_coord.to_csv('/home/jay/pangenome-pipeline/SRA_scripts/results/accessions_coordinates.csv', encoding='utf-8')
 
