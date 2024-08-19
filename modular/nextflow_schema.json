@@ -51,11 +51,6 @@
           "description": "Minimum number of matching samples for a pangenome to be considered for further analysis",
           "help_text": "The minimum number of samples with good average expected coverage for a pangenome to be used for downstream analysis."
         },
-        "max_contam": {
-          "type": "integer",
-          "default": 5,
-          "description": "Maximum contamination for a MAG/bin to be used for pangenome creation"
-        },
         "block_size": {
           "type": "integer",
           "default": 2,

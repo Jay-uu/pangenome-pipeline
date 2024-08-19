@@ -23,7 +23,7 @@ process create_mOTU_dirs {
     import glob
     
     min_genomes = !{params.min_mOTU_MAGs} #nextflow param
-    max_contam = !{params.max_contam} #nf param
+    max_contam = !{params.MAGcontam} #nf param
     bintdf = pd.read_csv("!{bintable}", sep = '\t')
 
     if max_contam < 0:
