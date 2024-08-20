@@ -178,11 +178,11 @@
           "description": "Minimum coverage required for a specific locus to be used for diversity analysis.",
           "help_text": "Used for running POGENOM in calc_pang_div. If a locus has too low coverage it won't be included for that sample."
         },
-        "min_median_cov": {
+        "min_cov": {
           "type": "integer",
           "default": 20,
           "description": "Minimum coverage for a sample to be used for variant calling to a pangenome",
-          "help_text": "Currently same parameter used for estimating average coverage of subsampled reads to a pan-/reference genome and median coverage of mapped reads to core/contigs over min_contig_length. Should be updated to min_cov."
+          "help_text": "Used for estimating average coverage of subsampled reads to a pan-/reference genome and median coverage of mapped reads to core/contigs over min_contig_length. This determines how much coverage is required for a sample to a genome to be used for variant calling."
         },
         "min_breadth": {
           "type": "integer",

@@ -37,7 +37,7 @@ process cov_to_pang_samples {
     import glob
     
     SAMPS_FILE = "!{samples_file}"
-    COV_THRESHOLD = !{params.min_median_cov}
+    COV_THRESHOLD = !{params.min_cov}
     NR_SAMPS_THRESHOLD = !{params.nr_samps_threshold}
     NR_SUBSAMP = !{params.nr_subsamp}
     PROJECT = os.path.basename("!{params.project}")
@@ -119,7 +119,7 @@ process cov_to_pang_samples {
     #This allows the process to finish and publish results, but still printing why the pipeline stops if no pangenomes pass the thresholds
     if len(glob.glob(f"samples/*.samples")) < 1:
         with open("NONE_PASSED.txt", "w") as outfile:
-            outfile.write("WARNING: It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --min_median_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or perhaps using more samples.")
+            outfile.write("WARNING: It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or perhaps using more samples.")
 
    
     /$

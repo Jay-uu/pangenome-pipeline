@@ -55,6 +55,7 @@ process downsample_bams_merge {
     mkdir -p !{pang_sqm}_mergeable
     echo "Creating depth files and checking breadth and coverage."    
     #create depth files, col 3 is number of reads at one position
+    echo -e "Genome\tSample\tMedian_cov\tBreadth\n" > cov_breadth.txt
     for bam in tmp_bams/*.bam;
     do
         #mpileup command doesn't allow multithreading
@@ -68,7 +69,7 @@ process downsample_bams_merge {
         bamfile=$bam
         outbamfile=$(basename $bam bam)subsampled.bam #name of output
         mag=!{pang_sqm} #pangenome name
-        mincov=!{params.min_median_cov}
+        mincov=!{params.min_cov}
         minbreadth=!{params.min_breadth}
         samplename=$(basename ${bam#"${mag}."} .bam)
 
@@ -89,6 +90,7 @@ process downsample_bams_merge {
         breadth=$(echo $non_zero*100/$positions | bc -l )
 
         echo "Genome:" $mag "- Sample:" $samplename "Median_coverage of core:" $cov " breadth %:" $breadth
+        echo -e "${mag}\t${samplename}\t${cov}\t${breadth}\n" >> cov_breadth.txt
 
         #---selection of BAM files and downsample
         if (( $(echo "$breadth >= $minbreadth" | bc -l) )) && (( $(echo "$cov >= $mincov" | bc -l) )); then
@@ -107,7 +109,7 @@ process downsample_bams_merge {
     echo "Checking mergeable"
     if [ -z "$(ls -A !{pang_sqm}_mergeable)" ]; then
          echo "No sample fit the alignment criteria. Skipping further analysis for !{pang_sqm}"
-         cat "WARNING: No sample fit the alignment criteria for !{pang_sqm}. If you want to analyze this sample further try lowering --min_median_cov and/or --min_breadth." > NOT_PASSED.txt
+         cat "WARNING: No sample fit the alignment criteria for !{pang_sqm}. If you want to analyze this sample further try lowering --min_cov and/or --min_breadth." > NOT_PASSED.txt
     else
         echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over !{params.min_contig_len} bases."
         ls !{pang_sqm}_mergeable/*.bam > bamlist.txt #*/
