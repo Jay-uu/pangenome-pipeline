@@ -9,6 +9,7 @@ process mOTUs_to_pangenome {
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome", mode: "copyNoFollow",  pattern: "pangenomes/${mOTU_dir}", saveAs: { filename -> "superpang/" }
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copyNoFollow", pattern: "bins"
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome/superpang/", mode: "copy", pattern: "*contigs.tsv"
+    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copy", pattern: "input.fa", saveAs: { filename -> "input_bins.txt" }
     label "mOTUs_to_pangenome"
     tag "${mOTU_dir.baseName}"
     input:
@@ -19,6 +20,7 @@ process mOTUs_to_pangenome {
     path("pangenomes/${mOTU_dir}/*.core.fasta", emit: core_fasta)
     path("${mOTU_dir}.core.contigs.tsv"), emit: contigs_tsv
     path("bins"), type: "dir", emit: motu_bins_links
+    path("input.fa"), emit: input_bins
     shell:
     $/
     
@@ -35,10 +37,14 @@ process mOTUs_to_pangenome {
     os.makedirs(pg_dir_name)
     core_name = f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".NBPs.core.fasta"
     
+    #Making a file with the bins used for creating the pangenome
+    with open("input.fa", "w") as fastas:
+        fastas.write("\n".join(genomes))
+        
     if nr_genomes > 1:
         print("Enough genomes to run pangenome computation")
-        with open("input.fa", "w") as fastas:
-            fastas.write("\n".join(genomes))
+        #with open("input.fa", "w") as fastas:
+            #fastas.write("\n".join(genomes))
         call(["SuperPang.py", "--fasta", "input.fa","--checkm", "!{bintable}", "--output-dir", f"{pg_dir_name}/!{mOTU_dir}", "--header-prefix", f"!{mOTU_dir}",
         "--output-as-file-prefix", "--nice-headers", "--threads", f"!{task.cpus}", "--debug"]) #====REMOVE DEBUG LATER======
         #Check if core file is empty
@@ -53,7 +59,6 @@ process mOTUs_to_pangenome {
     
     elif nr_genomes == 1:
         print("Only one genome in mOTU. Renaming headers and copying to pangenome dir.")
-
         outfile= f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".singlemOTU.core.fasta"
         core_name = outfile
         symfile = f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".singlemOTU.NBPs.fasta"
@@ -88,7 +93,12 @@ process mOTUs_to_pangenome {
     os.makedirs("bins")
     in_bins = os.listdir("!{mOTU_dir}")
     for binfasta in in_bins:
-        os.symlink(bins_rel_path+binfasta, "bins/"+binfasta) 
+        src = bins_rel_path + binfasta
+        dst = "bins/" + binfasta
+        if not os.path.isdir(os.path.dirname(dst)):
+            os.makedirs(os.path.dirname(dst))
+        os.symlink(src, dst)
+        #os.symlink(bins_rel_path+binfasta, "bins/"+binfasta) 
          
     /$
 }
