@@ -8,6 +8,7 @@ The downsampling shell code is modified from POGENOM's Input_pogenom pipeline by
 See here: https://github.com/EnvGen/POGENOM/blob/master/Input_POGENOM/src/cov_bdrth_in_dataset.sh
 */
 process downsample_bams_merge {
+    publishDir "${params.project}/mOTUs/results/${pang_id}/pangenome", pattern: "cov_breadth.txt"
     label "downsample_bams_merge"
     tag "${pang_id}"
     input:
@@ -15,6 +16,7 @@ process downsample_bams_merge {
     output:
     tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam"), optional: true, emit: ref_merged)
     path("NOT_PASSED.txt"), optional: true, emit: not_passed_message
+    path("cov_breadth.txt"), emit: cov_breadth
     shell:
     '''
     if [ ! -s !{contigs_tsv} ]; then
@@ -39,17 +41,6 @@ process downsample_bams_merge {
         samtools index ${bam}
         bam_ID=$(basename $bam .bam)
         samtools view -Sbh -F 1024 -q 1 -L contigs.bed --threads !{task.cpus} $bam > tmp_bams/${bam_ID}.bam
-        #samtools index tmp_filtered.bam
-        
-        #if test -f *contigs.tsv; then
-        #    awk ' { print $1, 1, $2} ' !{contigs_tsv} > contigs.bed #get input contigs.tsv instead
-        #else
-        #    #create a contigs.bed with all contigs. This should maybe be done using the bamfile instead.
-        #    grep ">" !{pang_sqm}/results/01.*.fasta > contigs.bed
-        #fi
-        #create tmp bams
-        #bam_ID=$(basename $bam .bam)
-        #samtools view -b -L contigs.bed --threads !{task.cpus} tmp_filtered.bam > tmp_bams/${bam_ID}.bam
     done
     
     mkdir -p !{pang_sqm}_mergeable
@@ -66,12 +57,11 @@ process downsample_bams_merge {
     
         # ---- arguments
         #mpileupfile=tmp.mpileup
-        bamfile=$bam
         outbamfile=$(basename $bam bam)subsampled.bam #name of output
         mag=!{pang_sqm} #pangenome name
         mincov=!{params.min_cov}
         minbreadth=!{params.min_breadth}
-        samplename=$(basename ${bam#"${mag}."} .bam)
+        samplename=$(basename ${bam#"${mag}."} .bam) #this might be bugged. When testing manually it's just the samplename but my output file is mag.sample. Not removing string successfully.
 
         #--- Median coverage
         #col 4 has nr of reads mapped to position, only take positions where reads mapped, sort by numerical value, add to array,
@@ -100,7 +90,7 @@ process downsample_bams_merge {
             fi
             limite=$(echo "scale=3; $mincov/$cov" | bc )
             samp=$(echo "scale=3; ($limite)+10" | bc)
-            samtools view -Sbh --threads !{task.cpus} -s $samp $bamfile | samtools sort -o !{pang_sqm}_mergeable/$outbamfile --threads !{task.cpus}
+            samtools view -Sbh --threads !{task.cpus} -s $samp $bam | samtools sort -o !{pang_sqm}_mergeable/$outbamfile --threads !{task.cpus}
         fi
     done
     
