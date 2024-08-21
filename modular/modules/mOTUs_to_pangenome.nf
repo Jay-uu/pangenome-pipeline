@@ -7,9 +7,8 @@ This could possibly be changed to have different script parts, which would mean 
 */
 process mOTUs_to_pangenome {
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome", mode: "copyNoFollow",  pattern: "pangenomes/${mOTU_dir}", saveAs: { filename -> "superpang/" }
-    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copyNoFollow", pattern: "bins"
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome/superpang/", mode: "copy", pattern: "*contigs.tsv"
-    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copy", pattern: "input.fa", saveAs: { filename -> "input_bins.txt" }
+    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copy", pattern: "input_bins.txt", saveAs: { filename -> "pang_bins.txt" }
     label "mOTUs_to_pangenome"
     tag "${mOTU_dir.baseName}"
     input:
@@ -19,8 +18,7 @@ process mOTUs_to_pangenome {
     path("pangenomes/${mOTU_dir}/*.NBPs.fasta", emit: NBPs_fasta)
     path("pangenomes/${mOTU_dir}/*.core.fasta", emit: core_fasta)
     path("${mOTU_dir}.core.contigs.tsv"), emit: contigs_tsv
-    path("bins"), type: "dir", emit: motu_bins_links
-    path("input.fa"), emit: input_bins
+    path("input_bins.txt"), emit: input_bins
     shell:
     $/
     
@@ -38,14 +36,14 @@ process mOTUs_to_pangenome {
     core_name = f"{pg_dir_name}/!{mOTU_dir}/" + "!{mOTU_dir}" + ".NBPs.core.fasta"
     
     #Making a file with the bins used for creating the pangenome
-    with open("input.fa", "w") as fastas:
+    with open("input_bins.txt", "w") as fastas:
         fastas.write("\n".join(genomes))
         
     if nr_genomes > 1:
         print("Enough genomes to run pangenome computation")
-        #with open("input.fa", "w") as fastas:
+        #with open("input_bins.txt", "w") as fastas:
             #fastas.write("\n".join(genomes))
-        call(["SuperPang.py", "--fasta", "input.fa","--checkm", "!{bintable}", "--output-dir", f"{pg_dir_name}/!{mOTU_dir}", "--header-prefix", f"!{mOTU_dir}",
+        call(["SuperPang.py", "--fasta", "input_bins.txt","--checkm", "!{bintable}", "--output-dir", f"{pg_dir_name}/!{mOTU_dir}", "--header-prefix", f"!{mOTU_dir}",
         "--output-as-file-prefix", "--nice-headers", "--threads", f"!{task.cpus}", "--debug"]) #====REMOVE DEBUG LATER======
         #Check if core file is empty
         if os.stat(core_name).st_size == 0:
@@ -78,6 +76,7 @@ process mOTUs_to_pangenome {
         raise Exception(f"No fastas found in !{mOTU_dir}")
         
     #Getting the core contig names over a certain length in a tsv for the VC workflow
+    print("Creating contigs.tsv")
     with open(core_name, "rt") as pg:
         all_contigs = list(SeqIO.parse(pg, "fasta"))
         with open(f"!{mOTU_dir}.core.contigs.tsv", "w") as outfile:
@@ -86,19 +85,6 @@ process mOTUs_to_pangenome {
                 if c_len >= !{params.min_contig_len}:
                     outfile.write(f"{s.id}\t{c_len}\n")       
     
-        
-    #when published, link will be in project/mOTUs/results/motu_xxx/bins/symlink
-    #while bins are in project/bins/fastas/bin.fa
-    bins_rel_path = "./../../../../bins/fastas/"
-    os.makedirs("bins")
-    in_bins = os.listdir("!{mOTU_dir}")
-    for binfasta in in_bins:
-        src = bins_rel_path + binfasta
-        dst = "bins/" + binfasta
-        if not os.path.isdir(os.path.dirname(dst)):
-            os.makedirs(os.path.dirname(dst))
-        os.symlink(src, dst)
-        #os.symlink(bins_rel_path+binfasta, "bins/"+binfasta) 
          
     /$
 }
