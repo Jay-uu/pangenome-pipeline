@@ -1,13 +1,16 @@
 # pangenome-pipeline
 A Nextflow pipeline for Pangenome analysis using [SuperPang](https://github.com/fpusan/SuperPang) and [SqueezeMeta](https://github.com/jtamames/SqueezeMeta) and many other programs.
-Need a description here about what the pipeline does specifically.
+The pipeline has 3 parts which can be run separately or together.
+Step 1: Assembles raw reads into bins using [SqueezeMeta](https://github.com/jtamames/SqueezeMeta) which means that the bins also will be evaluated for quality using Checkm2 and taxonomially classified using GTDB-Tk (and more! Look at the Squeezemeta link for more info about these results and what you can do with them!)
+Step 2: Clusters and assembles bins mOTUs which are then assembled into pangenomes. This allows you to investigate the core and accessory genomes of species.
+Step 3: Maps reads towards the previously constructed pangenomes or a reference genome and runs [POGENOM](https://pogenom.readthedocs.io/en/latest/) for population genomic analysis.
 
 # Installation
 The pipeline is still in development, so changes may happen.
 For now to use the pipeline you need to clone this repository to a location on the machine you wish to run it on:
 ```git clone https://github.com/Jay-uu/pangenome-pipeline.git```.
 
-Then you need to install and set up the SqueezeMeta dev Conda environment, I recommend that you use Mamba for this:
+Then you need to install and set up the SqueezeMeta dev Conda environment, I recommend that you use Mamba for this. The current version the pipeline works with is SqueezeMeta-dev 1.7.0.beta3.
 ```mamba create -n SqueezeMeta -c conda-forge -c bioconda -c anaconda -c fpusan squeezemeta-dev --no-channel-priority``` and then activate it using ```mamba activate SqueezeMeta```
 When this is done, you can continue setting up the environment following the instructions on [SqueezeMeta's GitHub](https://github.com/jtamames/SqueezeMeta?tab=readme-ov-file#3-downloading-or-building-databases) under title 3. Downloading or building databases.
 
@@ -17,10 +20,10 @@ The minimum things you need to run the pipeline is:
 2. A tab-delimited file with sample names in the first column, the name of a read file in the second column, and "pair1" or "pair2" in the third column, to signify whether the read file has forward/single reads (pair1) or reverse reads (pair2). This is referred to as tsv.samples, or samples file. Each individual Sample (column 1) may either have only paired reads or only single reads.
    Example:
 
- | Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.fwd.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1 |  
- | Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.rev.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair2 |  
- | Sample2&nbsp;&nbsp;&nbsp;&nbsp;Sample2.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1 |  
- | Sample2&nbsp;&nbsp;&nbsp;&nbsp;abcdefg.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1 |  
+ |&nbsp;Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.fwd.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;|  
+ |&nbsp;Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.rev.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair2&nbsp;|  
+ |&nbsp;Sample2&nbsp;&nbsp;&nbsp;&nbsp;Sample2.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;|  
+ |&nbsp;Sample2&nbsp;&nbsp;&nbsp;&nbsp;abcdefg.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;|  
 
 3. A project name. This is where your output will be stored. Make this descriptive for your own sake!
 
@@ -63,7 +66,7 @@ You might not always want to run the whole pipeline depending on your purposes. 
    ```nextflow run <path/to/modular/main.nf> --project <path/project_name> --samples <tsv.samples> --fastq <path/to/dir> --run_VC false```
 
 ## Subsampling
-
+By default the pipeline uses subsampling of the raw reads to map them to the pangenomes/reference genomes to get an estimate of expected coverage for a sample to a genome. This saves on computation time by not needing to map all reads to all genomes to determine which samples can contribute to the species diversity. Unless you have very few samples this is the recommended way to run the pipeline. 
 
 # Configurations
 
