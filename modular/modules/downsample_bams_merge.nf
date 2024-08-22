@@ -57,7 +57,7 @@ process downsample_bams_merge {
     
         # ---- arguments
         #mpileupfile=tmp.mpileup
-        outbamfile=$(basename $bam bam)subsampled.bam #name of output
+        outbamfile=$(basename $bam bam)downsampled.bam #name of output
         mag=!{pang_sqm} #pangenome name
         mincov=!{params.min_cov}
         minbreadth=!{params.min_breadth}
@@ -101,7 +101,7 @@ process downsample_bams_merge {
          echo "No sample fit the alignment criteria. Skipping further analysis for !{pang_sqm}"
          cat "WARNING: No sample fit the alignment criteria for !{pang_sqm}. If you want to analyze this sample further try lowering --min_cov and/or --min_breadth." > NOT_PASSED.txt
     else
-        echo "Merging subsampled bams. and creating fasta of pangenome with only NBPs over !{params.min_contig_len} bases."
+        echo "Merging downsampled bams. and creating fasta of pangenome with only NBPs over !{params.min_contig_len} bases."
         ls !{pang_sqm}_mergeable/*.bam > bamlist.txt #*/
         samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{task.cpus}
         samtools index !{pang_sqm}_merged.bam --threads !{task.cpus}
