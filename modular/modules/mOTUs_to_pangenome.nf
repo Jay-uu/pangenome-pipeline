@@ -44,7 +44,7 @@ process mOTUs_to_pangenome {
         #with open("input_bins.txt", "w") as fastas:
             #fastas.write("\n".join(genomes))
         call(["SuperPang.py", "--fasta", "input_bins.txt","--checkm", "!{bintable}", "--output-dir", f"{pg_dir_name}/!{mOTU_dir}", "--header-prefix", f"!{mOTU_dir}",
-        "--output-as-file-prefix", "--nice-headers", "--threads", f"!{task.cpus}", "--debug"]) #====REMOVE DEBUG LATER======
+        "--output-as-file-prefix", "--nice-headers", "--threads", f"!{task.cpus}"])
         #Check if core file is empty
         if os.stat(core_name).st_size == 0:
             print("Core genome file empty. Will use the consensus assembly for read mapping.")
