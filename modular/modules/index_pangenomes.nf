@@ -16,7 +16,6 @@ process index_pangenomes {
     '''
     pang_file=!{pangenome_dir}/*.core.fasta
     pang_id=!{pangenome_dir.baseName}
-    #*/ remove comment
     #Checking core genome existence
     if [ -s ${pang_file} ]; then
         echo "Mapping samples to core genome"
