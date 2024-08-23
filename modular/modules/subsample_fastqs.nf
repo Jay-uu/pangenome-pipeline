@@ -46,10 +46,8 @@ process subsample_fastqs {
     fwds = []
     revs = []
     
-    fq_count = 0 #number of read files for this sample
     with open("!{sample}") as infile:
         for line in open("!{sample}"):
-            fq_count = fq_count+1
             fields = line.strip().split("\t")
             if len(fields) < 3:
                 raise Exception(f"Missing columns or wrong delimiter on line: {line}")
@@ -91,9 +89,9 @@ process subsample_fastqs {
         if rev_out:
             outfile.write(f"\n{SAMPLE_ID}\t{rev_out}\tpair2")
         
-    #write file with samp_name, nr fqs and tot_reads
+    #write file with samp_name and tot_reads
     with open(f"{SAMPLE_ID}_readcounts.tsv", "w") as out:
-        out.write("Sample\tNr_fastqs\tTotal_reads\n")
-        out.write("\t".join([f"{SAMPLE_ID}", str(fq_count), str(tot_reads)+"\n"]))    
+        out.write("Sample\tTotal_reads\n")
+        out.write("\t".join([f"{SAMPLE_ID}", str(tot_reads)+"\n"]))    
     /$
 }

@@ -5,7 +5,7 @@ collected output from map_subset coverage, single_samps and subsample_fastqs rea
 Input: 
        coverage: A file with samtools coverage output, which has the depth of how reads from a sample mapped to a pangenome/reference genome.
        singles: The previously generated .samples files with which reads belong to which sample.
-       readcounts: A file named {sample}_readcount.txt which conatains how many fastq files with reads belong to the sample, and the total number of reads 
+       readcounts: A file named {sample}_readcount.txt which contains the total number of reads per sample.
        in those fastqs.
 Output:
        pang_cpm_cov: Two files, one with the calculated results for CPM and the other with coverage.
