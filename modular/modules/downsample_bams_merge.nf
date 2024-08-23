@@ -22,7 +22,7 @@ process downsample_bams_merge {
     if [ ! -s !{contigs_tsv} ]; then
         #create a contigs tsv will all contigs and bed
         #required fields: name, start, length
-        bam=$(ls !{pang_sqm}/data/bam/*.bam | head -n1) #*/ comment is for editor purposes
+        bam=$(ls !{pang_sqm}/data/bam/*.bam | head -n1)
         echo "Using ${bam} to create contigs.bed, since no selected contigs were provided."
         bedtools bamtobed -i $bam > contigs.bed
     else
@@ -34,7 +34,7 @@ process downsample_bams_merge {
     #Create tmp bams, filter for contigs over ${cont_len} bases put reads aligning to them in tmp_bams
     echo "Creating tmp bams"
     mkdir tmp_bams
-    for bam in !{pang_sqm}/data/bam/*.bam; #*/
+    for bam in !{pang_sqm}/data/bam/*.bam;
     do
 	echo "Filtering ${bam} alignments for selected contigs"
         #Filter to select only paired reads (-f 2) and avoids optical duplicates (-F 1024)
@@ -49,10 +49,7 @@ process downsample_bams_merge {
     echo -e "Genome\tSample\tMedian_cov\tBreadth\n" > cov_breadth.txt
     for bam in tmp_bams/*.bam;
     do
-        #mpileup command doesn't allow multithreading
-        #-A for count orphans
-        #samtools mpileup -A -d 1000000 -Q 15 -a $bam > tmp.mpileup
-        #using samtools depth instead, newer
+        #Getting depth at each position
         samtools depth -aa -J -s -q 1 -b contigs.bed $bam > tmp.depth
     
         # ---- arguments
@@ -69,13 +66,11 @@ process downsample_bams_merge {
         #Not 100% sure why 0 positions are excluded in Input_pogenom. Their preprint does say that they do it purposefully though.
         #https://www.biorxiv.org/content/10.1101/2020.03.25.999755v1.full
         #but assuming it's because they aren't actually used for variant calling and therefore irrelevant for the coverage and downsampling
-        #cov=$(cut -f4 $mpileupfile | grep -vw "0" | sort -n | awk ' { a[i++]=$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
         #samtools depth has the nr of reads at position in col 3
         cov=$(cut -f3 tmp.depth | grep -vw "0" | sort -n | awk ' { a[i++]=$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
 
         #---breadth
-        #non_zero=$(cut -f4 $mpileupfile | grep -cvw "0") #mpileup way
-        non_zero=$(cut -f3 tmp.depth | grep -cvw "0") #depth way
+        non_zero=$(cut -f3 tmp.depth | grep -cvw "0")
         positions=$(wc -l < tmp.depth)
         breadth=$(echo $non_zero*100/$positions | bc -l )
 
@@ -102,7 +97,7 @@ process downsample_bams_merge {
          cat "WARNING: No sample fit the alignment criteria for !{pang_sqm}. If you want to analyze this sample further try lowering --min_cov and/or --min_breadth." > NOT_PASSED.txt
     else
         echo "Merging downsampled bams. and creating fasta of pangenome with only NBPs over !{params.min_contig_len} bases."
-        ls !{pang_sqm}_mergeable/*.bam > bamlist.txt #*/
+        ls !{pang_sqm}_mergeable/*.bam > bamlist.txt
         samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{task.cpus}
         samtools index !{pang_sqm}_merged.bam --threads !{task.cpus}
         samtools idxstats !{pang_sqm}_merged.bam --threads !{task.cpus}| awk '$2 >= '!{params.min_contig_len}' { print $0 }' > long_contigs.tsv
