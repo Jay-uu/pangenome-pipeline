@@ -18,8 +18,8 @@
         },
         "readcount": {
           "type": "string",
-          "description": "A tab-delimited file with sample, nr fastqs and total reads",
-          "help_text": "E.g.\nSample Nr_fastqs Total_reads\nSample1 2 1000000\nSample2 4 2000000\netc. for each sample"
+          "description": "A tab-delimited file with sample name and total reads (all fastqs combined)",
+          "help_text": "E.g.\nSample Total_reads\nSample1 1000000\nSample2 2000000\netc. for each sample\nMake sure the headers are correct!"
         },
         "ref_genome": {
           "type": "string",
