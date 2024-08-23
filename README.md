@@ -1,5 +1,6 @@
 # pangenome-pipeline
 A Nextflow pipeline for Pangenome analysis using [SuperPang](https://github.com/fpusan/SuperPang) and [SqueezeMeta](https://github.com/jtamames/SqueezeMeta) and many other programs.
+It allows an automatic way to get data for intra-species diveristy analysis on a large amount of samples.
 The pipeline has 3 parts which can be run separately or together.
 Step 1: Assembles raw reads into bins using [SqueezeMeta](https://github.com/jtamames/SqueezeMeta) which means that the bins also will be evaluated for quality using Checkm2 and taxonomially classified using GTDB-Tk (and more! Look at the Squeezemeta link for more info about these results and what you can do with them!)
 Step 2: Clusters and assembles bins mOTUs which are then assembled into pangenomes. This allows you to investigate the core and accessory genomes of species.
@@ -20,10 +21,10 @@ The minimum things you need to run the pipeline is:
 2. A tab-delimited file with sample names in the first column, the name of a read file in the second column, and "pair1" or "pair2" in the third column, to signify whether the read file has forward/single reads (pair1) or reverse reads (pair2). This is referred to as tsv.samples, or samples file. Each individual Sample (column 1) may either have only paired reads or only single reads.
    Example:
 
- |&nbsp;Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.fwd.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;|  
- |&nbsp;Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.rev.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair2&nbsp;|  
- |&nbsp;Sample2&nbsp;&nbsp;&nbsp;&nbsp;Sample2.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;|  
- |&nbsp;Sample2&nbsp;&nbsp;&nbsp;&nbsp;abcdefg.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;|  
+ &nbsp;Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.fwd.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;  
+ &nbsp;Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.rev.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair2&nbsp; 
+ &nbsp;Sample2&nbsp;&nbsp;&nbsp;&nbsp;Sample2.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;  
+ &nbsp;Sample2&nbsp;&nbsp;&nbsp;&nbsp;abcdefg.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;
 
 3. A project name. This is where your output will be stored. Make this descriptive for your own sake!
 
@@ -69,5 +70,60 @@ You might not always want to run the whole pipeline depending on your purposes. 
 By default the pipeline uses subsampling of the raw reads to map them to the pangenomes/reference genomes to get an estimate of expected coverage for a sample to a genome. This saves on computation time by not needing to map all reads to all genomes to determine which samples can contribute to the species diversity. Unless you have very few samples this is the recommended way to run the pipeline. 
 
 # Configurations
+Instead of writing all your parameters on the command line you can write a parameter file and provide it using ```-params-file <parameter_file.params>```.
+Example: 
+`
+params {
+        project = "My_project_date"
+        samples = "path/to/my_project.samples"
+        fastq = "path/to/fastqs"
+        threads = 12
+        taxSort = "class"
+        nr_samps_threshold = 2
+        min_cov = 10
+        min_breadth = 50
+}
+`
+The same can be done with specific configurations. If you're running the pipeline on a cluster you might want to optimize the use of resources. There are general labels for this that you can use, or use the name of the individual process to determine how many resources you request for it and it is allowed to use.
+The command for using a config file is ```-c <config-file> ```. Nf-core has some for different clusters, but here's an example on how I ran it on KTH's cluster Dardel:
+`
+//General settings for the pipeline execution:
+executor.queueSize = 100
+process {
+    //These settings will apply to all processes (except the ones with other configs using withLabel).
+    executor = 'slurm'
+        scratch = true //each process execution uses the scratch dir so temporary files won't take up disk space.
+        clusterOptions = { '-A <project>' }
+        cpus = params.threads
+        queue = 'shared' //This is the partition directive
+        time = '1d'
+        memory = '10 GB' //total mem for each task
+        
+        //This process is the most resource intensive, so I booked a full node for it.
+    withLabel: 'fastq_to_bins' {
+        time = { 24.h }
+        queue = 'memory'
+        memory = '880 GB'
+        cpus = 128
+        params.threads = 128
+    }
+    
+    withLabel: low_cpu {
+        executor = 'slurm'
+        clusterOptions = { '-A <project>' }
+        cpus = { 1 }
+        queue = 'shared'
+        time = '1d 10h 30m'
+        scratch = true
+        memory = { 4.GB * task.attempt }
+        time = { 10.h * task.attempt }
+        errorStrategy = { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
+        maxRetries = 2
+    }
+
+`
+The more general labels you can use to configure the pipeline are low_cpu (these processes use one cpu effectively), high_mem and the individual process names.
+If you want to know more about how Nextflow uses configurations you can [read the docs](https://www.nextflow.io/docs/latest/config.html).
 
 # Results structure
+After running the pipeline you might wonder where your results are and what they mean. Hopefully I'll have time to update with clearer descriptions, but for now: explore!
