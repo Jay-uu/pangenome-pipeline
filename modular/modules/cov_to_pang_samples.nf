@@ -40,7 +40,7 @@ process cov_to_pang_samples {
     COV_THRESHOLD = !{params.min_cov}
     NR_SAMPS_THRESHOLD = !{params.nr_samps_threshold}
     NR_SUBSAMP = !{params.nr_subsamp}
-    PROJECT = os.path.basename("!{params.project}")
+    PROJECT = os.path.basename("!{params.project}".rstrip("/"))
     
     print(f"Project is !{params.project}")
     """
