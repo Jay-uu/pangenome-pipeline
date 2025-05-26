@@ -72,7 +72,7 @@ By default the pipeline uses subsampling of the raw reads to map them to the pan
 # Configurations
 Instead of writing all your parameters on the command line you can write a parameter file and provide it using ```-params-file <parameter_file.yaml>```.
 The file needs to be either in YAML or JSON format.
-Example: 
+Example:<br>
 `
         project: 'My_project_date'
         samples: 'path/to/my_project.samples'
@@ -82,15 +82,14 @@ Example:
         nr_samps_threshold: 2
         min_cov: 10
         min_breadth: 50
-`
+`<br>
 NB! There is a [bug](https://github.com/nextflow-io/nextflow/issues/2662) related to defining parameters within a config file, meaning that it is much safer to provide parameters on the command line or in a separate parameter file.
  
 The same can be done with specific configurations. If you're running the pipeline on a cluster you might want to optimize the use of resources. There are general labels for this that you can use, or use the name of the individual process to determine how many resources you request for it and it is allowed to use.
-The command for using a config file is ```-c <config-file> ```. Nf-core has some for different clusters, but here's an example on how I ran it on KTH's cluster Dardel:
+The command for using a config file is ```-c <config-file> ```. Nf-core has some for different clusters, but here's an example on how I ran it on KTH's cluster Dardel:  
 
-`
- //General settings for the pipeline execution:
- executor.queueSize = 100
+//General settings for the pipeline execution:
+executor.queueSize = 100
 
 process {
     //These settings will apply to all processes (except the ones with other configs using withLabel).
