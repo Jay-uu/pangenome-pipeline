@@ -1,9 +1,9 @@
 # pangenome-pipeline
 A Nextflow pipeline for Pangenome analysis using [SuperPang](https://github.com/fpusan/SuperPang) and [SqueezeMeta](https://github.com/jtamames/SqueezeMeta) and many other programs.
 It allows an automatic way to get data for intra-species diveristy analysis on a large amount of samples.
-The pipeline has 3 parts which can be run separately or together.
-Step 1: Assembles raw reads into bins using [SqueezeMeta](https://github.com/jtamames/SqueezeMeta) which means that the bins also will be evaluated for quality using Checkm2 and taxonomially classified using GTDB-Tk (and more! Look at the Squeezemeta link for more info about these results and what you can do with them!)
-Step 2: Clusters and assembles bins mOTUs which are then assembled into pangenomes. This allows you to investigate the core and accessory genomes of species.
+The pipeline has 3 parts which can be run separately or together.<br>
+Step 1: Assembles raw reads into bins using [SqueezeMeta](https://github.com/jtamames/SqueezeMeta) which means that the bins also will be evaluated for quality using Checkm2 and taxonomially classified using GTDB-Tk (and more! Look at the Squeezemeta link for more info about these results and what you can do with them!)<br>
+Step 2: Clusters and assembles bins mOTUs which are then assembled into pangenomes. This allows you to investigate the core and accessory genomes of species.<br>
 Step 3: Maps reads towards the previously constructed pangenomes or a reference genome and runs [POGENOM](https://pogenom.readthedocs.io/en/latest/) for population genomic analysis.
 
 # Installation
@@ -18,13 +18,13 @@ When this is done, you can continue setting up the environment following the ins
 # Running the pipeline
 The minimum things you need to run the pipeline is:
 1. A directory with raw reads in fastq.gz format.
-2. A tab-delimited file with sample names in the first column, the name of a read file in the second column, and "pair1" or "pair2" in the third column, to signify whether the read file has forward/single reads (pair1) or reverse reads (pair2). This is referred to as tsv.samples, or samples file. Each individual Sample (column 1) may either have only paired reads or only single reads.
-   Example:
+2. A tab-delimited file with sample names in the first column, the name of a read file in the second column, and "pair1" or "pair2" in the third column, to signify whether the read file has forward/single reads (pair1) or reverse reads (pair2). This is referred to as tsv.samples, or samples file. Each individual Sample (column 1) may either have only paired reads or only single reads.<br>
+Example:
 
- &nbsp;Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.fwd.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;  
- &nbsp;Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.rev.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair2&nbsp; 
- &nbsp;Sample2&nbsp;&nbsp;&nbsp;&nbsp;Sample2.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;  
- &nbsp;Sample2&nbsp;&nbsp;&nbsp;&nbsp;abcdefg.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;
+    Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.fwd.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;  
+    Sample1&nbsp;&nbsp;&nbsp;&nbsp;Sample1.rev.fq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair2&nbsp;  
+    Sample2&nbsp;&nbsp;&nbsp;&nbsp;Sample2.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp;  
+    Sample2&nbsp;&nbsp;&nbsp;&nbsp;abcdefg.R1.fastq.gz&nbsp;&nbsp;&nbsp;&nbsp;pair1&nbsp; 
 
 3. A project name. This is where your output will be stored. Make this descriptive for your own sake!
 
@@ -84,10 +84,6 @@ YAML example:<br>
     min_breadth: 50
 
 JSON example:<br>
-{
-  "alpha": 1,
-  "beta": "foo"
-}
 ```
 {
 "project": "My_project_date",
@@ -95,11 +91,12 @@ JSON example:<br>
 "fastq": "path/to/fastqs",
 "threads": 12
 }
+```
     
 NB! There is a [bug](https://github.com/nextflow-io/nextflow/issues/2662) related to defining parameters within a config file, meaning that it is much safer to provide parameters on the command line or in a separate parameter file.
  
 The same can be done with specific configurations. If you're running the pipeline on a cluster you might want to optimize the use of resources. There are general labels for this that you can use, or use the name of the individual process to determine how many resources you request for it and it is allowed to use.
-The command for using a config file is ```-c <config-file> ```. Nf-core has some for different clusters, but here's an example on how I ran it on KTH's cluster Dardel:  
+The command for using a config file is `-c <config-file> `. Nf-core has some for different clusters, but here's an example on how I ran it on KTH's cluster Dardel:  
 ```
 //General settings for the pipeline execution:
 executor.queueSize = 100
@@ -135,7 +132,9 @@ process {
         errorStrategy = { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
         maxRetries = 2
     }
-```
+   }
+   ```
+
 The more general labels you can use to configure the pipeline are low_cpu (these processes use one cpu effectively), high_mem and the individual process names.
 If you want to know more about how Nextflow uses configurations you can [read the docs](https://www.nextflow.io/docs/latest/config.html).
 
