@@ -70,19 +70,18 @@ You might not always want to run the whole pipeline depending on your purposes. 
 By default the pipeline uses subsampling of the raw reads to map them to the pangenomes/reference genomes to get an estimate of expected coverage for a sample to a genome. This saves on computation time by not needing to map all reads to all genomes to determine which samples can contribute to the species diversity. Unless you have very few samples this is the recommended way to run the pipeline. 
 
 # Configurations
-Instead of writing all your parameters on the command line you can write a parameter file and provide it using ```-params-file <parameter_file.params>```.
+Instead of writing all your parameters on the command line you can write a parameter file and provide it using ```-params-file <parameter_file.yaml>```.
+The file needs to be either in YAML or JSON format. NB! There is a [bug](https://github.com/nextflow-io/nextflow/issues/2662) related to defining parameters within a config file, meaning that it is much safer to provide parameters on the command line or in a separate parameter file.
 Example: 
 `
-params {
-        project = "My_project_date"
-        samples = "path/to/my_project.samples"
-        fastq = "path/to/fastqs"
-        threads = 12
-        taxSort = "class"
-        nr_samps_threshold = 2
-        min_cov = 10
-        min_breadth = 50
-}
+        project: 'My_project_date'
+        samples: 'path/to/my_project.samples'
+        fastq: 'path/to/fastqs'
+        threads: 12
+        taxSort: 'class'
+        nr_samps_threshold: 2
+        min_cov: 10
+        min_breadth: 50
 `
 The same can be done with specific configurations. If you're running the pipeline on a cluster you might want to optimize the use of resources. There are general labels for this that you can use, or use the name of the individual process to determine how many resources you request for it and it is allowed to use.
 The command for using a config file is ```-c <config-file> ```. Nf-core has some for different clusters, but here's an example on how I ran it on KTH's cluster Dardel:
