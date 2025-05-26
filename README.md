@@ -72,22 +72,35 @@ By default the pipeline uses subsampling of the raw reads to map them to the pan
 # Configurations
 Instead of writing all your parameters on the command line you can write a parameter file and provide it using ```-params-file <parameter_file.yaml>```.
 The file needs to be either in YAML or JSON format.
-Example:<br>
-`
-        project: 'My_project_date'
-        samples: 'path/to/my_project.samples'
-        fastq: 'path/to/fastqs'
-        threads: 12
-        taxSort: 'class'
-        nr_samps_threshold: 2
-        min_cov: 10
-        min_breadth: 50
-`<br>
+YAML example:<br>
+
+    project: 'My_project_date'
+    samples: 'path/to/my_project.samples'
+    fastq: 'path/to/fastqs'
+    threads: 12
+    taxSort: 'class'
+    nr_samps_threshold: 2
+    min_cov: 10
+    min_breadth: 50
+
+JSON example:<br>
+{
+  "alpha": 1,
+  "beta": "foo"
+}
+```
+{
+"project": "My_project_date",
+"samples": "path/to/my_project.samples",
+"fastq": "path/to/fastqs",
+"threads": 12
+}
+    
 NB! There is a [bug](https://github.com/nextflow-io/nextflow/issues/2662) related to defining parameters within a config file, meaning that it is much safer to provide parameters on the command line or in a separate parameter file.
  
 The same can be done with specific configurations. If you're running the pipeline on a cluster you might want to optimize the use of resources. There are general labels for this that you can use, or use the name of the individual process to determine how many resources you request for it and it is allowed to use.
 The command for using a config file is ```-c <config-file> ```. Nf-core has some for different clusters, but here's an example on how I ran it on KTH's cluster Dardel:  
-
+```
 //General settings for the pipeline execution:
 executor.queueSize = 100
 
@@ -122,7 +135,7 @@ process {
         errorStrategy = { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
         maxRetries = 2
     }
-`
+```
 The more general labels you can use to configure the pipeline are low_cpu (these processes use one cpu effectively), high_mem and the individual process names.
 If you want to know more about how Nextflow uses configurations you can [read the docs](https://www.nextflow.io/docs/latest/config.html).
 
