@@ -8,56 +8,9 @@ Modular attempt
 */
 
 nextflow.enable.dsl=2
-include { validateParameters; paramsHelp; paramsSummaryLog; fromSamplesheet } from "plugin/nf-validation"
+include { validateParameters; paramsHelp; paramsSummaryLog; fromSamplesheet } from "plugin/nf-validation" 
 
-// Print help message, supply typical command line usage for the pipeline
-if (params.help) {
-   log.info paramsHelp("nextflow run main.nf --project <project_name> --samples <tsv.samples> --fastq <path/to/dir> --threads <nr> \n\n  To get more info about a specific parameter write nextflow run main.nf --help <parameter_name>")
-   log.info """\
-   You can supply a config file with the parameters using -c. For more info see the usr_template.config or
-   ${params.manifest.homePage}
-   """
 
-   exit 0
-}
-
-// Validate input parameters
-validateParameters()
-
-// Print summary of supplied parameters
-log.info paramsSummaryLog(workflow)
-
-//Check project parameter
-def badChars = ["^","(",")","+", " ", "|"]
-if ( params.project.findAll { a -> badChars.any { a.contains(it) } } ) {
-	throw new Exception("Invalid project name. Special characters and whitespaces not allowed.")
-}
-
-//Gives a warning if project already exists
-if (workflow.resume == false) {
-	//Workflow was not resumed, checking project dir
-	Path projDir = new File(params.project).toPath()
-	if (projDir.exists() == true) {
-		throw new Exception("Project directory $params.project already exists, choose a new name or use the -resume flag. WARNING: Note that if you resume the wrong job, this might overwrite previous results.")
-	}
-}
-
-println "The subsample parameter is set to ${params.subsample}"
-if (params.subsample == false) {
-	//Currently we want to allow skipping subsampling for any entry
-	//if (params.bins == null) {
-	//    throw new Exception("Skipping subsampling is only allowed for the bin entry. Please provide a directory with --bins <path/to/dir> or set --subsample <true>.")
-	//}
-	if (params.bins != null && params.readcount == null) {
-	    throw new Exception("When skipping subsampling and using already constructed bins a tab delimited readcount file with Sample, Nr_fastqs, Total_reads needs to be provided with --readcount <path/to/file>")
-	    //file format Sample  Nr_fastqs       Total_reads
-	    //MAYBE UPDATE TO NOT REQUIRE NR_FASTQS BECAUSE IT'S OBSOLETE NOW
-	}
-    }
-    
-if (params.bins != null && params.ref_genome != null) {
-	throw new Exception("You can either provide pre-assembled bins or previously created reference genomes, but not both. Please use either the --bins flag or the --ref_genome flag. ")
-}
 // import modules
 //maybe later I will move the workflows into separate files and only import the necessary modules for that workflow
 include { format_samples } from './modules/format_samples'
@@ -125,11 +78,11 @@ workflow raw_to_bins {
     	//File with which fastq files belong to which samples. Tab delimited with sample-name, fastq file name and pair.
     	sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
     
-    	/*Runs the process that creates individual samples files */
+    	//Runs the process that creates individual samples files
     	format_samples(sam_ch, fastq_ch.to_format)
     	format_samples.out.flatten().multiMap { it -> to_subsamp: to_assembly: it }.set { samples_files }
     
-        fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+        //Binning
     	fastq_to_bins(samples_files.to_assembly, fastq_ch.to_assembly.first())
     	
     	//Summarizing bintables into one file and only printing certain columns
@@ -326,6 +279,55 @@ workflow variant_calling {
 
 
 workflow {
+    // Print help message, supply typical command line usage for the pipeline
+    if (params.help) {
+        log.info paramsHelp("nextflow run main.nf --project <project_name> --samples <tsv.samples> --fastq <path/to/dir> --threads <nr> \n\n  To get more info about a specific parameter write nextflow run main.nf --help <parameter_name>")
+        log.info """\
+        You can supply a config file with the parameters using -c. For more info see the usr_template.config or
+        ${workflow.manifest.homePage}
+        """
+
+        exit 0
+    }
+
+// Validate input parameters
+validateParameters()
+
+// Print summary of supplied parameters
+log.info paramsSummaryLog(workflow)
+
+//Check project parameter
+def badChars = ["^","(",")","+", " ", "|"]
+if ( params.project.findAll { a -> badChars.any { a.contains(it) } } ) {
+	throw new Exception("Invalid project name. Special characters and whitespaces not allowed.")
+}
+
+//Gives a warning if project already exists
+if (workflow.resume == false) {
+	//Workflow was not resumed, checking project dir
+	Path projDir = new File(params.project).toPath()
+	if (projDir.exists() == true) {
+		throw new Exception("Project directory $params.project already exists, choose a new name or use the -resume flag. WARNING: Note that if you resume the wrong job, this might overwrite previous results.")
+	}
+}
+
+println "The subsample parameter is set to ${params.subsample}"
+if (params.subsample == false) {
+	//Currently we want to allow skipping subsampling for any entry
+	//if (params.bins == null) {
+	//    throw new Exception("Skipping subsampling is only allowed for the bin entry. Please provide a directory with --bins <path/to/dir> or set --subsample <true>.")
+	//}
+	if (params.bins != null && params.readcount == null) {
+	    throw new Exception("When skipping subsampling and using already constructed bins a tab delimited readcount file with Sample, Nr_fastqs, Total_reads needs to be provided with --readcount <path/to/file>")
+	    //file format Sample  Nr_fastqs       Total_reads
+	    //MAYBE UPDATE TO NOT REQUIRE NR_FASTQS BECAUSE IT'S OBSOLETE NOW
+	}
+    }
+    
+if (params.bins != null && params.ref_genome != null) {
+	throw new Exception("You can either provide pre-assembled bins or previously created reference genomes, but not both. Please use either the --bins flag or the --ref_genome flag. ")
+}
+
     println "Starting. Your results will be published at ${params.project}."
     
     /*
@@ -412,10 +414,11 @@ workflow {
 		throw new Exception("It seems you're trying to run the variant calling workflow without subsampling. If you're sure about doing this, make sure to set --force_variant_calling to true.")
 		}
     	}
-}
 
     //It should be possible to add a message for when the pipeline finishes.
     workflow.onComplete {
         println "Your results can be found at ${params.project}\nHave fun!"
     }
+}
+
 
