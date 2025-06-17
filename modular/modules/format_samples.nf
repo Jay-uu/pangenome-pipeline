@@ -12,19 +12,19 @@ process format_samples {
     path(fastq_dir)
     output:
     path("singles/*")
-    shell:
-    $/
-    #!/usr/bin/env python
+    script:
+    """
+    #!/usr/bin/env python3
     import os
     from collections import defaultdict
     from collections import Counter
     
     os.makedirs("singles", exist_ok=True)
-    fastq_files = os.listdir("!{fastq_dir}")
+    fastq_files = os.listdir("${fastq_dir}")
     
     samples2lines = defaultdict(list)
-    with open("!{samples_file}") as infile:
-        for line in open("!{samples_file}"):
+    with open("${samples_file}") as infile:
+        for line in open("${samples_file}"):
             fields = line.strip().split("\t")
             if len (fields) < 3:
                 raise Exception(f"Missing columns or wrong delimiter on line: {line}") # this halts execution with exit code -1 and emits a message
@@ -32,7 +32,7 @@ process format_samples {
             if pair not in ("pair1", "pair2"):
                 raise Exception("Error with provided samples file. Make sure there's no header and that the third column says 'pair1' or 'pair2'") #a header, or spelled wrong
             if filename not in fastq_files:
-                 raise Exception(f"{filename} not found in !{fastq_dir}")
+                 raise Exception(f"{filename} not found in ${fastq_dir}")
             if not filename.endswith(".fastq.gz") and not filename.endswith(".fq.gz"):
                  raise Exception(f"Wrong file format for {filename}. Only .fastq.gz and .fq.gz are accepted.")
             samples2lines[sample].append(line)
@@ -52,5 +52,5 @@ process format_samples {
         with open(f"singles/{sample}.samples", "w") as outfile:
             for line in lines:
                 outfile.write(line)
-    /$       
+    """       
 }

@@ -13,15 +13,15 @@ process parse_taxonomies {
     path(all_bintables)
     output:
     path("*_bins", emit: tax_bin_dirs)
-    shell:
-    $/
+    script:
+    """
     #!/usr/bin/env python
     import os
     import glob
     import pandas as pd
     import shutil
     ranks = ["root","auto","domain", "phylum","class","order", "family","genus","species"]
-    rank_param = "!{params.taxSort}"
+    rank_param = "${params.taxSort}"
     rank_param = rank_param.lower() #allow the user to spell with big letters
     if rank_param not in ranks:
         raise Exception(f"The provided sorting rank is not valid. Please use a taxonomic rank from the following list {ranks}")
@@ -62,7 +62,7 @@ process parse_taxonomies {
         #Use only good quality bins to determine rank
         #find lowest rank with more than 90% classified bins and change rank_param to that
         print("Selected rank: auto. Finding lowest well classified rank among good quality bins.")
-        good_qual = all_bintables[(all_bintables["Completeness"] > !{params.MAGcomplete}) & (all_bintables["Contamination"] < !{params.MAGcontam})].copy()
+        good_qual = all_bintables[(all_bintables["Completeness"] > ${params.MAGcomplete}) & (all_bintables["Contamination"] < ${params.MAGcontam})].copy()
         rank_not_selected = True
         i = 8
         tot_bins = len(good_qual)
@@ -88,7 +88,7 @@ process parse_taxonomies {
         print(f"Writing {group} to dirs")
         g = all_bintables[all_bintables[rank_param] == group]
         #check that the group has at least one bin of good enough quality for mOTUlizer. Otherwise skip.
-        if len(g.loc[(g["Completeness"] > !{params.MAGcomplete}) & (g["Contamination"] < !{params.MAGcontam})]) == 0:
+        if len(g.loc[(g["Completeness"] > ${params.MAGcomplete}) & (g["Contamination"] < ${params.MAGcontam})]) == 0:
             print(f"No {group} bin is good enough quality for clustering. Exlcuding from further analysis.")
         else:
             os.makedirs(group+"_bins")
@@ -96,6 +96,6 @@ process parse_taxonomies {
                      sep='\t', columns = ["Bin Id","Completeness","Contamination"])
             for bin_id in g['Bin Id']:
                 shutil.copy2(bin_id+".fa", group+"_bins")
-    /$
+    """
     
 }

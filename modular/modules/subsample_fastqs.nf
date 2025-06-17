@@ -16,9 +16,9 @@ process subsample_fastqs {
     tuple(val("${sample.baseName}"), path("sub_*.fq.gz"), emit: sub_reads)
     path("*_readcounts.tsv", emit: readcount)
     path("*.subsampled.samples", emit: sample_file)
-    shell:
-    $/
-    #!/usr/bin/env python
+    script:
+    """
+    #!/usr/bin/env python3
     import os
     from pathlib import Path
     from subprocess import Popen
@@ -27,16 +27,15 @@ process subsample_fastqs {
     from subprocess import check_output
     import gzip
 
-    NR_SUBSAMP = int("!{params.nr_subsamp}")
-    FASTQ_FILES = os.listdir("!{fastq_dir}")
-    SAMPLE_ID = Path("!{sample}").stem
+    NR_SUBSAMP = int("${params.nr_subsamp}")
+    FASTQ_FILES = os.listdir("${fastq_dir}")
+    SAMPLE_ID = Path("${sample}").stem
     
-    """
-    A function which takes a list of fastq files and subsamples a number of reads from the combined files.
-    Result is a compressed fq file.
-    """
+
+    #A function which takes a list of fastq files and subsamples a number of reads from the combined files.
+    #Result is a compressed fq file.
     def concat_subtk_compress(file_list, direction, nr_subsamp):
-        file_list = ["!{fastq_dir}/" + readfile for readfile in file_list]
+        file_list = ["${fastq_dir}/" + readfile for readfile in file_list]
         with open(f"sub_{SAMPLE_ID}_{direction}.fq.gz", "w") as subout:
             concat = Popen(["cat"] + file_list, stdout=PIPE)
             subtk = Popen(["seqtk", "sample", "-s100", "-", f"{nr_subsamp}"], stdin=concat.stdout, stdout=PIPE)
@@ -46,14 +45,14 @@ process subsample_fastqs {
     fwds = []
     revs = []
     
-    with open("!{sample}") as infile:
-        for line in open("!{sample}"):
+    with open("${sample}") as infile:
+        for line in open("${sample}"):
             fields = line.strip().split("\t")
             if len(fields) < 3:
                 raise Exception(f"Missing columns or wrong delimiter on line: {line}")
             sample, filename, pair, *_ = fields
             if filename not in FASTQ_FILES:
-                raise Exception(f"{filename} not found in !{fastq_dir}")
+                raise Exception(f"{filename} not found in ${fastq_dir}")
             if pair == "pair1":
                 fwds.append(filename)
             elif pair == "pair2":
@@ -67,7 +66,7 @@ process subsample_fastqs {
     tot_reads = 0
     for fq in (fwds + revs):
         print(f"Counting reads in {fq}")
-        reads_bases = check_output(["seqtk", "size",f"!{fastq_dir}/{fq}"], text=True)
+        reads_bases = check_output(["seqtk", "size",f"${fastq_dir}/{fq}"], text=True)
         reads = int(reads_bases.split()[0]) #0 is nr reads, 1 is nr nucleotides
         tot_reads = tot_reads + reads
       
@@ -93,5 +92,5 @@ process subsample_fastqs {
     with open(f"{SAMPLE_ID}_readcounts.tsv", "w") as out:
         out.write("Sample\tTotal_reads\n")
         out.write("\t".join([f"{SAMPLE_ID}", str(tot_reads)+"\n"]))    
-    /$
+    """
 }
