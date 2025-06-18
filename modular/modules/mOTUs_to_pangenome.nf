@@ -6,9 +6,9 @@ Output is a directory with a subdirectory for the mOTU, containing the pangenome
 This could possibly be changed to have different script parts, which would mean that I can have the python code for changing the name of the file and the fasta headers (the else part) directly in the process instead of in a separate script.
 */
 process mOTUs_to_pangenome {
-    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome", mode: "copyNoFollow",  pattern: "pangenomes/${mOTU_dir}", saveAs: { filename -> "superpang/" }
+    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome", mode: "copyNoFollow",  pattern: "pangenomes/${mOTU_dir}", saveAs: { "superpang/" }
     publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome/superpang/", mode: "copy", pattern: "*contigs.tsv"
-    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copy", pattern: "input_bins.txt", saveAs: { filename -> "pang_bins.txt" }
+    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copy", pattern: "input_bins.txt", saveAs: { "pang_bins.txt" }
     label "mOTUs_to_pangenome"
     tag "${mOTU_dir.baseName}"
     input:
