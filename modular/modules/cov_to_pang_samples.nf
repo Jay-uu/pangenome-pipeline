@@ -29,27 +29,27 @@ process cov_to_pang_samples {
     path("pangenome/*.tsv"), emit: individual_pang_cov
     path("NONE_PASSED.txt"), optional: true, emit: not_passed_message
     
-    shell:
-    $/
+    script:
+    """
     #!/usr/bin/env python
     import os
     import pandas as pd
     import glob
     
-    SAMPS_FILE = "!{samples_file}"
-    COV_THRESHOLD = !{params.min_cov}
-    NR_SAMPS_THRESHOLD = !{params.nr_samps_threshold}
-    NR_SUBSAMP = !{params.nr_subsamp}
-    PROJECT = os.path.basename("!{params.project}".rstrip("/"))
+    SAMPS_FILE = "${samples_file}"
+    COV_THRESHOLD = ${params.min_cov}
+    NR_SAMPS_THRESHOLD = ${params.nr_samps_threshold}
+    NR_SUBSAMP = ${params.nr_subsamp}
+    PROJECT = os.path.basename("${params.project}".rstrip("/"))
     
-    print(f"Project is !{params.project}")
-    """
-    Input: 
-        cov = dataframe of samtools coverage output
-        tot_reads = total count of reads from the sample read files
-    Returns the weighted mean coverage per read, and the expected average
-    coverage for all the reads of that sample to the pangenome.
-    """
+    print(f"Project is ${params.project}")
+    
+    #Input: 
+    #   cov = dataframe of samtools coverage output
+    #   tot_reads = total count of reads from the sample read files
+    #Returns the weighted mean coverage per read, and the expected average
+    #coverage for all the reads of that sample to the pangenome.
+    
     def get_expected_cov_cpm(cov, tot_reads, nr_subsamp):
         #median = cov["Depth"].median()
         #CovPM = median*1000000/nr_subsamp
@@ -122,5 +122,5 @@ process cov_to_pang_samples {
             outfile.write("WARNING: It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or perhaps using more samples.")
 
    
-    /$
+    """
 }

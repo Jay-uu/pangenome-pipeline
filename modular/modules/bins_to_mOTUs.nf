@@ -14,14 +14,14 @@ process bins_to_mOTUs {
     input:
     path(tax_dir)
     output:
-    tuple(env(group), path("*_mOTUs.tsv"), path("${tax_dir}/*.bintable"), emit: mOTUs_tuple)
+    tuple(env('group'), path("*_mOTUs.tsv"), path("${tax_dir}/*.bintable"), emit: mOTUs_tuple)
     path("*_similarities.txt", emit: simi_file)
-    shell:
-    '''
-    #!/bin/bash
-    group="!{tax_dir}"
-    group=${group%"_bins"}
-    echo $group
-    mOTUlize.py --fnas !{tax_dir}/*.fa --checkm !{tax_dir}/*.bintable --MAG-completeness !{params.MAGcomplete} --MAG-contamination !{params.MAGcontam} --threads !{task.cpus} --keep-simi-file ${group}_similarities.txt -o ${group}_mOTUs.tsv
-    '''
+    script:
+    """
+    #!/usr/bin/env bash
+    group="${tax_dir}"
+    group=\${group%"_bins"}
+    echo \$group
+    mOTUlize.py --fnas ${tax_dir}/*.fa --checkm ${tax_dir}/*.bintable --MAG-completeness ${params.MAGcomplete} --MAG-contamination ${params.MAGcontam} --threads ${task.cpus} --keep-simi-file \${group}_similarities.txt -o \${group}_mOTUs.tsv
+    """
 }
