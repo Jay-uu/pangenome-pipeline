@@ -99,7 +99,7 @@ process downsample_bams_merge {
         echo "Merging downsampled bams. and creating fasta of pangenome with only NBPs over !{params.min_contig_len} bases."
         ls !{pang_sqm}_mergeable/*.bam > bamlist.txt
         samtools merge -o !{pang_sqm}_merged.bam -b bamlist.txt --threads !{task.cpus}
-        samtools index !{pang_sqm}_merged.bam --threads !{task.cpus}
+        samtools index !{pang_sqm}_merged.bam -@ !{task.cpus}
         samtools idxstats !{pang_sqm}_merged.bam --threads !{task.cpus}| awk '$2 >= '!{params.min_contig_len}' { print $0 }' > long_contigs.tsv
         awk '{ print $1 }' long_contigs.tsv > contig_names.tsv
         #seqtk doesn't allow multithreading
