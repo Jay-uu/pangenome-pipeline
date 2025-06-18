@@ -13,28 +13,28 @@ process map_subset {
     tuple(path(pangenome_dir),path(index), val(pang_id), val(sample_ID), path(sub_reads))
     output:
     path("*_coverage.tsv", emit: coverage)
-    shell:
-    '''
+    script:
+    """
     #run bowtie2
     reads_id=$(basename sub_*_R1.fq.gz _R1.fq.gz)
     #check if there are sub*R2 reads, if yes:
     if stat --printf='' sub_*_R2.fq.gz 2>/dev/null; then
         echo "Running paired-end mode"
-        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz --threads !{task.cpus} | samtools view -bS --threads !{task.cpus} > tmp_alignment.bam
+        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz --threads ${task.cpus} | samtools view -bS --threads ${task.cpus} > tmp_alignment.bam
     else
         echo "Running unpaired reads mode"
-        bowtie2 -x index -U sub_*_R1.fq.gz --threads !{task.cpus} | samtools view -bS --threads !{task.cpus} > tmp_alignment.bam
+        bowtie2 -x index -U sub_*_R1.fq.gz --threads ${task.cpus} | samtools view -bS --threads ${task.cpus} > tmp_alignment.bam
     fi
     
     echo "Sorting bam files"
-    samtools sort tmp_alignment.bam -O BAM -o !{pang_id}_${reads_id}_alignment.bam --threads !{task.cpus}
+    samtools sort tmp_alignment.bam -O BAM -o ${pang_id}_\${reads_id}_alignment.bam --threads ${task.cpus}
     
     echo "Computing coverage"
     #want all positions, not double count overlapping sections of paired reads, allow reads with deletions
-    samtools depth -aa -J -s -q 1 !{pang_id}_${reads_id}_alignment.bam -o !{pang_id}_${reads_id}_coverage.tsv
+    samtools depth -aa -J -s -q 1 ${pang_id}_\${reads_id}_alignment.bam -o ${pang_id}_\${reads_id}_coverage.tsv
     
     echo "Removing .bam files" #to save space
     rm *.bam #the sorted bams are named despite being deleted in case we decide a downstream process needs them.
     
-    '''
+    """
 }

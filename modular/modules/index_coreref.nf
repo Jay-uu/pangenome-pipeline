@@ -11,11 +11,10 @@ process index_coreref {
     input:
     path(fasta)
     output:
-    tuple(path(fasta),path("index*"), env(fasta_id), emit: fasta_index_id) 
-    shell:
-    '''
-    fasta_id=!{fasta.baseName}
-    echo "Building index for ${fasta_id}"
-    bowtie2-build !{fasta} index
-    '''
+    tuple(path(fasta),path("index*"), env(fasta.baseName), emit: fasta_index_id) 
+    script:
+    """
+    echo "Building index for ${fasta.baseName}"
+    bowtie2-build ${fasta} index
+    """
 }
