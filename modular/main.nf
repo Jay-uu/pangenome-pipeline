@@ -20,7 +20,7 @@ include { parse_taxonomies } from './modules/parse_taxonomies'
 include { bins_to_mOTUs } from './modules/bins_to_mOTUs'
 include { create_mOTU_dirs } from './modules/create_mOTU_dirs'
 include { mOTUs_to_pangenome } from './modules/mOTUs_to_pangenome'
-include { checkm_pangenomes } from './modules/checkm_pangenomes'
+//include { checkm_pangenomes } from './modules/checkm_pangenomes'
 include { checkm2_pangenomes } from './modules/checkm2_pangenomes'
 include { index_pangenomes } from './modules/index_pangenomes'
 include { index_coreref } from './modules/index_coreref'
@@ -34,8 +34,8 @@ include { calc_pang_div } from './modules/calc_pang_div.nf'
 include { tuplify_samp_fastqs } from './modules/tuplify_samp_fastqs.nf'
 
 def summarize_bintables(bintable_ch) {
-	bintable_header = Channel.value( "Bin ID	Completeness	Contamination	Tax GTDB-Tk" )
-	bintable_rows = bintable_ch.collectFile(keepHeader: true, skip: 2)
+	def bintable_header = Channel.value( "Bin ID	Completeness	Contamination	Tax GTDB-Tk" )
+	def bintable_rows = bintable_ch.collectFile(keepHeader: true, skip: 2)
     			.splitCsv(header: true, skip: 1, sep: "\t")
     			.map { row -> "${row.'Bin ID'}	${row.Completeness}	${row.Contamination}	${row.'Tax GTDB-Tk'}" }
     	bintable_header.concat(bintable_rows).collectFile(name: "summarized_bintable.tsv", newLine: true, sort: false, storeDir: "${params.project}/bins")
