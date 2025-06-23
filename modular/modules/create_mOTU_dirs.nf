@@ -14,23 +14,23 @@ process create_mOTU_dirs {
     path(bins)
     output:
     tuple(path("${group}_mOTU_*", type: "dir"), path("${bintable}"), optional: true)
-    shell:
-    '''
+    script:
+    """
     #!/usr/bin/env python
     import os
     import shutil
     import pandas as pd
     import glob
     
-    min_genomes = !{params.min_mOTU_MAGs} #nextflow param
-    max_contam = !{params.MAGcontam} #nf param
-    bintdf = pd.read_csv("!{bintable}", sep = '\t')
+    min_genomes = ${params.min_mOTU_MAGs} #nextflow param
+    max_contam = ${params.MAGcontam} #nf param
+    bintdf = pd.read_csv("${bintable}", sep = '\t')
 
     if max_contam < 0:
         raise Exception("The max_contam parameter needs to be a positive int or 0.")
 
-    with open("!{motus_file}") as infile:
-        for line in open("!{motus_file}"):
+    with open("${motus_file}") as infile:
+        for line in open("${motus_file}"):
             if line.startswith("mOTU_"):
                 fields = line.strip().split("\t")
                 mOTU, rep, mean_ANI, min_ANI, missing_edges, MAGs, *SUBs = fields
@@ -42,16 +42,16 @@ process create_mOTU_dirs {
                 motu_bintdf = bintdf[bintdf["Bin Id"].isin(MAGs)]
                 passed_contam = motu_bintdf.apply(lambda x: True if x["Contamination"] <= max_contam else False, axis = 1)
                 if len(passed_contam[passed_contam == True].index) >= min_genomes:
-                    print("Enough genomes passed the contamination threshold. Creating output directory for !{group}_{mOTU}.")
-                    os.mkdir("!{group}_" + mOTU)
+                    print("Enough genomes passed the contamination threshold. Creating output directory for ${group}_{mOTU}.")
+                    os.mkdir("${group}_" + mOTU)
                     for genome in MAGs:
                         #move file to mOTU directory
                         #Only bins with up to the maximum contamination threshold should be used. Any completeness is fine.
                         contam = bintdf.loc[bintdf["Bin Id"] == genome]["Contamination"].item()
                         if contam <= max_contam:
-                            shutil.copy2(genome + ".fa", "!{group}_" + mOTU + "/")
-                            print(f"{genome} being copied into !{group}_{mOTU} directory")
+                            shutil.copy2(genome + ".fa", "${group}_" + mOTU + "/")
+                            print(f"{genome} being copied into ${group}_{mOTU} directory")
                 else:
-                    print(f"No genomes pass the contamination threshold. !{group}_{mOTU} will not be used for pangenome computation.")
-    '''
+                    print(f"No genomes pass the contamination threshold. ${group}_{mOTU} will not be used for pangenome computation.")
+    """
 }
