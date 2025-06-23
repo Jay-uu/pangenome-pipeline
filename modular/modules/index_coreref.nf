@@ -11,7 +11,7 @@ process index_coreref {
     input:
     path(fasta)
     output:
-    tuple(path(fasta),path("index*"), env(fasta.baseName), emit: fasta_index_id) 
+    tuple(path(fasta), path("index*"), val("${fasta.baseName}"), emit: fasta_index_id) 
     script:
     """
     echo "Building index for ${fasta.baseName}"
