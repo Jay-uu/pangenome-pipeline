@@ -16,7 +16,7 @@ process map_subset {
     script:
     """
     #run bowtie2
-    reads_id=$(basename sub_*_R1.fq.gz _R1.fq.gz)
+    reads_id=\$(basename sub_*_R1.fq.gz _R1.fq.gz)
     #check if there are sub*R2 reads, if yes:
     if stat --printf='' sub_*_R2.fq.gz 2>/dev/null; then
         echo "Running paired-end mode"

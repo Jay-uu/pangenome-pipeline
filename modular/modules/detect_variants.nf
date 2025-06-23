@@ -17,7 +17,7 @@ process detect_variants {
     script:
     """
     #!/usr/bin/env bash
-    pang_ID=$(basename ${pangenome} _long_contigs.fasta)
+    pang_ID=\$(basename ${pangenome} _long_contigs.fasta)
     echo "Detecting variants in ${pangenome}"
     echo "Indexing ${bam}"
     samtools index ${bam}

@@ -22,7 +22,7 @@ process downsample_bams_merge {
     if [ ! -s ${contigs_tsv} ]; then
         #create a contigs tsv will all contigs and bed
         #required fields: name, start, length
-        bam=$(ls ${pang_sqm}/data/bam/*.bam | head -n1)
+        bam=\$(ls ${pang_sqm}/data/bam/*.bam | head -n1)
         echo "Using \${bam} to create contigs.bed, since no selected contigs were provided."
         bedtools bamtobed -i \$bam > contigs.bed
     else
@@ -39,7 +39,7 @@ process downsample_bams_merge {
 	echo "Filtering \${bam} alignments for selected contigs"
         #Filter to select only paired reads (-f 2) and avoids optical duplicates (-F 1024)
         samtools index \${bam}
-        bam_ID=$(basename \$bam .bam)
+        bam_ID=\$(basename \$bam .bam)
         samtools view -Sbh -F 1024 -q 1 -L contigs.bed --threads ${task.cpus} \$bam > tmp_bams/\${bam_ID}.bam
     done
     
@@ -54,11 +54,11 @@ process downsample_bams_merge {
     
         # ---- arguments
         #mpileupfile=tmp.mpileup
-        outbamfile=$(basename \$bam bam)downsampled.bam #name of output
-        mag=${pang_sqm} #pangenome name
+        outbamfile=\$(basename \$bam bam)downsampled.bam #name of output
+        mag=\${pang_sqm} #pangenome name
         mincov=${params.min_cov}
         minbreadth=${params.min_breadth}
-        samplename=$(basename \${bam#"\${mag}."} .bam) #this might be bugged. When testing manually it's just the samplename but my output file is mag.sample. Not removing string successfully.
+        samplename=\$(basename \${bam#"\${mag}."} .bam) #this might be bugged. When testing manually it's just the samplename but my output file is mag.sample. Not removing string successfully.
 
         #--- Median coverage
         #col 4 has nr of reads mapped to position, only take positions where reads mapped, sort by numerical value, add to array,
@@ -67,24 +67,24 @@ process downsample_bams_merge {
         #https://www.biorxiv.org/content/10.1101/2020.03.25.999755v1.full
         #but assuming it's because they aren't actually used for variant calling and therefore irrelevant for the coverage and downsampling
         #samtools depth has the nr of reads at position in col 3
-        cov=$(cut -f3 tmp.depth | grep -vw "0" | sort -n | awk ' { a[i++]=\$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
+        cov=\$(cut -f3 tmp.depth | grep -vw "0" | sort -n | awk ' { a[i++]=\$1; } END { x=int((i+1)/2); if (x < (i+1)/2) print (a[x-1]+a[x])/2; else print a[x-1]; }')
 
         #---breadth
-        non_zero=$(cut -f3 tmp.depth | grep -cvw "0")
-        positions=$(wc -l < tmp.depth)
-        breadth=$(echo \$non_zero*100/\$positions | bc -l )
+        non_zero=\$(cut -f3 tmp.depth | grep -cvw "0")
+        positions=\$(wc -l < tmp.depth)
+        breadth=\$(echo \$non_zero*100/\$positions | bc -l )
 
         echo "Genome:" \$mag "- Sample:" \$samplename "Median_coverage of core:" \$cov " breadth %:" \$breadth
         echo -e "\${mag}\t\${samplename}\t\${cov}\t\${breadth}\n" >> cov_breadth.txt
 
         #---selection of BAM files and downsample
-        if (( $(echo "\$breadth >= \$minbreadth" | bc -l) )) && (( $(echo "\$cov >= \$mincov" | bc -l) )); then
+        if (( \$(echo "\$breadth >= \$minbreadth" | bc -l) )) && (( \$(echo "\$cov >= \$mincov" | bc -l) )); then
             echo "Downsampling coverage to \$mincov - Genome: \$mag - Sample: \$samplename "
-            if (( $(echo "\$mincov == 0" | bc -l) )); then
+            if (( \$(echo "\$mincov == 0" | bc -l) )); then
                 \$mincov=\$cov
             fi
-            limite=$(echo "scale=3; \$mincov/\$cov" | bc )
-            samp=$(echo "scale=3; (\$limite)+10" | bc)
+            limite=\$(echo "scale=3; \$mincov/\$cov" | bc )
+            samp=\$(echo "scale=3; (\$limite)+10" | bc)
             samtools view -Sbh --threads ${task.cpus} -s \$samp \$bam | samtools sort -o ${pang_sqm}_mergeable/\$outbamfile --threads ${task.cpus}
         fi
     done
@@ -92,7 +92,7 @@ process downsample_bams_merge {
     #Merge bam-files that pass the check, if more than one bam in mergeable/ #*/ what to do if no files?
     #if at least one file in mergeable, create new fasta with only long contigs
     echo "Checking mergeable"
-    if [ -z "$(ls -A ${pang_sqm}_mergeable)" ]; then
+    if [ -z "\$(ls -A ${pang_sqm}_mergeable)" ]; then
          echo "No sample fit the alignment criteria. Skipping further analysis for ${pang_sqm}"
          cat "WARNING: No sample fit the alignment criteria for ${pang_sqm}. If you want to analyze this sample further try lowering --min_cov and/or --min_breadth." > NOT_PASSED.txt
     else
