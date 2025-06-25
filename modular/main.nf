@@ -282,10 +282,7 @@ workflow {
     // Print help message, supply typical command line usage for the pipeline
     if (params.help) {
         log.info paramsHelp("nextflow run main.nf --project <project_name> --samples <tsv.samples> --fastq <path/to/dir> --threads <nr> \n\n  To get more info about a specific parameter write nextflow run main.nf --help <parameter_name>")
-        log.info """\
-        You can supply a config file with the parameters using -c. For more info see the usr_template.config or
-        ${workflow.manifest.homePage}
-        """
+        log.info "You can supply a config file with the parameters using -params-file. For more info check the GitHub page ${workflow.manifest.homePage} "
 
         exit 0
     }
