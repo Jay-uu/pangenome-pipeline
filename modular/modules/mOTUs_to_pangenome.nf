@@ -21,30 +21,28 @@ process mOTUs_to_pangenome {
     path("input_bins.txt"), emit: input_bins
     script:
     """
-    #!/usr/bin/env python
+    #!/usr/bin/env python3
     from Bio import SeqIO
     from subprocess import call
     from pathlib import Path
     import os
     import glob
-    
+
     genomes = glob.glob("${mOTU_dir}/*.fa")
     nr_genomes = len(genomes)
     pg_dir_name = "pangenomes"
     os.makedirs(pg_dir_name)
     mOTU_dir = "${mOTU_dir}"
     core_name = f"{pg_dir_name}/{mOTU_dir}/" + mOTU_dir + ".NBPs.core.fasta"
-    
+    min_contig_len = ${params.min_contig_len}
+
     #Making a file with the bins used for creating the pangenome
     with open("input_bins.txt", "w") as fastas:
-        fastas.write("\n".join(genomes))
-        
+        fastas.write("\\n".join(genomes))
+
     if nr_genomes > 1:
         print("Enough genomes to run pangenome computation")
-        #with open("input_bins.txt", "w") as fastas:
-            #fastas.write("\n".join(genomes))
-        call(["SuperPang.py", "--fasta", "input_bins.txt","--checkm", "${bintable}", "--output-dir", f"{pg_dir_name}/{mOTU_dir}", "--header-prefix", f"{mOTU_dir}",
-        "--output-as-file-prefix", "--nice-headers", "--threads", f"${task.cpus}"])
+        call(["SuperPang.py", "--fasta", "input_bins.txt","--checkm", "${bintable}", "--output-dir", f"{pg_dir_name}/{mOTU_dir}", "--header-prefix", f"{mOTU_dir}","--output-as-file-prefix", "--nice-headers", "--threads", f"${task.cpus}"])
         #Check if core file is empty
         if os.stat(core_name).st_size == 0:
             print("Core genome file empty. Will use the consensus assembly for read mapping.")
@@ -82,9 +80,8 @@ process mOTUs_to_pangenome {
         with open(f"{mOTU_dir}.core.contigs.tsv", "w") as outfile:
             for i,s in enumerate(all_contigs):
                 c_len = len(s.seq)
-                if c_len >= !{params.min_contig_len}:
-                    outfile.write(f"{s.id}\t{c_len}\n")       
-    
-         
+                if c_len >= min_contig_len:
+                    outfile.write(f"{s.id}\t{c_len}")
+                    outfile.write("\\n")
     """
 }

@@ -29,8 +29,7 @@ process subsample_fastqs {
 
     NR_SUBSAMP = int("${params.nr_subsamp}")
     FASTQ_FILES = os.listdir("${fastq_dir}")
-    SAMPLE_ID = Path("${sample}").stem
-    
+    SAMPLE_ID = Path("${sample}").stem    
 
     #A function which takes a list of fastq files and subsamples a number of reads from the combined files.
     #Result is a compressed fq file.
@@ -44,7 +43,7 @@ process subsample_fastqs {
     
     fwds = []
     revs = []
-    
+
     with open("${sample}") as infile:
         for line in open("${sample}"):
             fields = line.strip().split("\t")
@@ -62,7 +61,7 @@ process subsample_fastqs {
     #sorting the lists to make sure that matching fwds and revs are in the same index
     fwds = sorted(fwds)
     revs = sorted(revs)
-    
+   
     tot_reads = 0
     for fq in (fwds + revs):
         print(f"Counting reads in {fq}")
@@ -73,24 +72,26 @@ process subsample_fastqs {
     if tot_reads < NR_SUBSAMP:
         print(f"Less reads available than requested subsampling. Subsampling {tot_reads} number of reads instead.")
         NR_SUBSAMP = tot_reads
-    
+
     #subsampling and concatenating
     rev_out = ""
     #checking if we have reverse reads first to set the subsampling from each file to the correct number
     if len(revs) > 0:
         NR_SUBSAMP = NR_SUBSAMP/2
         rev_out = concat_subtk_compress(revs, "R2", NR_SUBSAMP)
+
     fwd_out = concat_subtk_compress(fwds, "R1", NR_SUBSAMP)
-        
+      
     #saving a new .samples file
     with open(f"{SAMPLE_ID}.subsampled.samples", "w") as outfile:
         outfile.write(f"{SAMPLE_ID}\t{fwd_out}\tpair1")
         if rev_out:
-            outfile.write(f"\n{SAMPLE_ID}\t{rev_out}\tpair2")
-        
+            outfile.write("\\n")
+            outfile.write(f"{SAMPLE_ID}\t{rev_out}\tpair2")
+
     #write file with samp_name and tot_reads
     with open(f"{SAMPLE_ID}_readcounts.tsv", "w") as out:
-        out.write("Sample\tTotal_reads\n")
-        out.write("\t".join([f"{SAMPLE_ID}", str(tot_reads)+"\n"]))    
+        out.write("Sample\tTotal_reads\\n")
+        out.write("\t".join([f"{SAMPLE_ID}", str(tot_reads)+"\\n"]))    
     """
 }

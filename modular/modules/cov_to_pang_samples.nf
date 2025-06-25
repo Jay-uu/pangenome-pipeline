@@ -31,7 +31,7 @@ process cov_to_pang_samples {
     
     script:
     """
-    #!/usr/bin/env python
+    #!/usr/bin/env python3
     import os
     import pandas as pd
     import glob
@@ -83,7 +83,7 @@ process cov_to_pang_samples {
         print(f"Samp: {samp_name}, Median coverage: {exp_cov}, CPM: {cpm}")
         cpm_dic.setdefault(pang_id, {})[samp_name] = cpm
         cov_dic.setdefault(pang_id, {})[samp_name] = exp_cov
-    
+
     #convert dicts to dfs and save to file
     print("Saving coverage and CPM to files.")
     all_cov = pd.DataFrame.from_dict(cov_dic, orient="index")
@@ -93,7 +93,7 @@ process cov_to_pang_samples {
     all_cpm = pd.DataFrame.from_dict(cpm_dic, orient="index")
     all_cpm = all_cpm.reset_index().rename(columns={"index": "Pangenome"})
     all_cpm.to_csv(f"{PROJECT}.cpm.tsv", sep = '\t', index=False)
-    
+
     print("Making individual cov and cpm files.")
     os.makedirs("pangenome")
     for pang in all_cov["Pangenome"].unique():
@@ -119,8 +119,7 @@ process cov_to_pang_samples {
     #This allows the process to finish and publish results, but still printing why the pipeline stops if no pangenomes pass the thresholds
     if len(glob.glob(f"samples/*.samples")) < 1:
         with open("NONE_PASSED.txt", "w") as outfile:
-            outfile.write("WARNING: It seems none of your pangenomes fulfill the thresholds for further analysis. Consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or perhaps using more samples.")
-
-   
+            outfile.write("WARNING: It seems none of your pangenomes fulfill the thresholds for further analysis.\\n")
+            outfile.write("Consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or using more samples.")   
     """
 }

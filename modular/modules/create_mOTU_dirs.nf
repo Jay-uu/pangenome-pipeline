@@ -16,12 +16,12 @@ process create_mOTU_dirs {
     tuple(path("${group}_mOTU_*", type: "dir"), path("${bintable}"), optional: true)
     script:
     """
-    #!/usr/bin/env python
+    #!/usr/bin/env python3
     import os
     import shutil
     import pandas as pd
     import glob
-    
+
     min_genomes = ${params.min_mOTU_MAGs} #nextflow param
     max_contam = ${params.MAGcontam} #nf param
     bintdf = pd.read_csv("${bintable}", sep = '\t')

@@ -15,7 +15,7 @@ process parse_taxonomies {
     path("*_bins", emit: tax_bin_dirs)
     script:
     """
-    #!/usr/bin/env python
+    #!/usr/bin/env python3
     import os
     import glob
     import pandas as pd
