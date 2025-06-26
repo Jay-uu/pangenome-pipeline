@@ -206,8 +206,8 @@ workflow match_samps_to_pang {
     */
     sample_file = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
     cov_to_pang_samples(map_subset.out.coverage.collect(), sample_file.first(), readcounts.collect())
-    cov_to_pang_samples.out.not_passed_message.map { it.text.strip() }.view() //This file only gets created if not enough samples, meaning the text only gets printed if pipeline stops here.
-    cov_to_pang_samples.out.pang_samples.flatten().map { [it.getSimpleName(), it] }.set { pang_samples } //if no pang_samples pipeline stops here, but results from cov_to_pang_samples still get published
+    cov_to_pang_samples.out.not_passed_message.map { it -> it.text.strip() }.view() //This file only gets created if not enough samples, meaning the text only gets printed if pipeline stops here.
+    cov_to_pang_samples.out.pang_samples.flatten().map { it -> [it.getSimpleName(), it] }.set { pang_samples } //if no pang_samples pipeline stops here, but results from cov_to_pang_samples still get published
     
     emit:
     pang_samples = pang_samples //channel: [val(ID), path(ID.samples)]
@@ -224,7 +224,7 @@ workflow variant_calling {
     fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
     
     NBPs_fasta
-		.map { [it.getSimpleName(), it] }
+		.map { it -> [it.getSimpleName(), it] }
 		.set { NBPs_fasta }
     
     /*
@@ -255,12 +255,12 @@ workflow variant_calling {
     }
     else {
 	contigs_tsv
-                .map { [it.getSimpleName(), it] }
+                .map { it -> [it.getSimpleName(), it] }
                 .set { contigs_to_downsample }
         downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0))
     }
 
-    downsample_bams_merge.out.not_passed_message.map { it.text.strip() }.view()
+    downsample_bams_merge.out.not_passed_message.map { it -> it.text.strip() }.view()
     
     /*
     Running freebayes on the merged bam to get a filtered vcf file.
@@ -273,7 +273,7 @@ workflow variant_calling {
     Run pogenom
     */
     calc_pang_div(vcf_gff_ch)
-    calc_pang_div.out.success_message.map { it.text.strip() }.view()
+    calc_pang_div.out.success_message.map { it -> it.text.strip() }.view()
     
 }
 
