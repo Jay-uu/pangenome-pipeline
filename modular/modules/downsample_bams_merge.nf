@@ -55,7 +55,7 @@ process downsample_bams_merge {
         # ---- arguments
         #mpileupfile=tmp.mpileup
         outbamfile=\$(basename \$bam bam)downsampled.bam #name of output
-        mag=\${pang_sqm} #pangenome name
+        mag=${pang_sqm} #pangenome name
         mincov=${params.min_cov}
         minbreadth=${params.min_breadth}
         samplename=\$(basename \${bam#"\${mag}."} .bam) #this might be bugged. When testing manually it's just the samplename but my output file is mag.sample. Not removing string successfully.
