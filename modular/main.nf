@@ -7,7 +7,6 @@ Modular attempt
 ----------------------------------------------------------------------------------------
 */
 
-nextflow.enable.dsl=2
 include { validateParameters; paramsHelp; paramsSummaryLog; fromSamplesheet } from "plugin/nf-validation" 
 
 
@@ -20,7 +19,6 @@ include { parse_taxonomies } from './modules/parse_taxonomies'
 include { bins_to_mOTUs } from './modules/bins_to_mOTUs'
 include { create_mOTU_dirs } from './modules/create_mOTU_dirs'
 include { mOTUs_to_pangenome } from './modules/mOTUs_to_pangenome'
-//include { checkm_pangenomes } from './modules/checkm_pangenomes'
 include { checkm2_pangenomes } from './modules/checkm2_pangenomes'
 include { index_pangenomes } from './modules/index_pangenomes'
 include { index_coreref } from './modules/index_coreref'
@@ -73,20 +71,20 @@ workflow subsample_reads {
 workflow raw_to_bins {  
     main:
     	//The dir with all the fastqs
-    	Channel.fromPath(params.fastq, type: "dir", checkIfExists: true).multiMap { it -> to_format: to_assembly: to_subsamp: it }.set { fastq_ch }
+    	Channel.fromPath(params.fastq, type: "dir", checkIfExists: true).multiMap { fqs -> to_format: to_assembly: to_subsamp: fqs }.set { fastq_ch }
      
     	//File with which fastq files belong to which samples. Tab delimited with sample-name, fastq file name and pair.
     	sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
     
     	//Runs the process that creates individual samples files
     	format_samples(sam_ch, fastq_ch.to_format)
-    	format_samples.out.flatten().multiMap { it -> to_subsamp: to_assembly: it }.set { samples_files }
+    	format_samples.out.flatten().multiMap { samps -> to_subsamp: to_assembly: samps }.set { samples_files }
     
         //Binning
     	fastq_to_bins(samples_files.to_assembly, fastq_ch.to_assembly.first())
     	
     	//Summarizing bintables into one file and only printing certain columns
-    	fastq_to_bins.out.bintable.multiMap { chan -> to_emit: to_summarize: chan }.set { ch_bintables }
+    	fastq_to_bins.out.bintable.multiMap { btchan -> to_emit: to_summarize: btchan }.set { ch_bintables }
     	summarize_bintables(ch_bintables.to_summarize)
 
     	//Concatenating fastqs and subsampling for later mapping for each singles sample
@@ -109,12 +107,12 @@ workflow provided_bins {
         fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //should be subsampled fastqs provided by user
 	//if taxonomy and completeness already provided, don't need to run this. Might add something for it in the future.
         classify_bins(sample_file, bins_dir, fastq_dir.first())
-        classify_bins.out.bintable.multiMap { chan -> to_emit: to_summarize: chan }.set { ch_bintables }
+        classify_bins.out.bintable.multiMap { btchan -> to_emit: to_summarize: btchan }.set { ch_bintables }
         summarize_bintables(ch_bintables.to_summarize)
         
         sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
         fastq_ch = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
-        fastq_ch.multiMap { chan -> to_format: to_sub: chan }.set { fastq_ch }
+        fastq_ch.multiMap { fqchan -> to_format: to_sub: fqchan }.set { fastq_ch }
         
         format_samples(sam_ch, fastq_ch.to_format)
         samples_files = format_samples.out.flatten()
@@ -154,7 +152,7 @@ workflow pangenome_assembly {
     	*/
 
     	bintable.collect().set { all_bintables }
-    	bins.collect().multiMap { it -> to_tax_parser: to_mOTU_dirs: it }.set { all_bins }
+    	bins.collect().multiMap { colbins -> to_tax_parser: to_mOTU_dirs: colbins }.set { all_bins }
     
     	parse_taxonomies(all_bins.to_tax_parser, all_bintables) 
     
@@ -206,8 +204,8 @@ workflow match_samps_to_pang {
     */
     sample_file = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
     cov_to_pang_samples(map_subset.out.coverage.collect(), sample_file.first(), readcounts.collect())
-    cov_to_pang_samples.out.not_passed_message.map { it -> it.text.strip() }.view() //This file only gets created if not enough samples, meaning the text only gets printed if pipeline stops here.
-    cov_to_pang_samples.out.pang_samples.flatten().map { it -> [it.getSimpleName(), it] }.set { pang_samples } //if no pang_samples pipeline stops here, but results from cov_to_pang_samples still get published
+    cov_to_pang_samples.out.not_passed_message.map { npm -> npm.text.strip() }.view() //This file only gets created if not enough samples, meaning the text only gets printed if pipeline stops here.
+    cov_to_pang_samples.out.pang_samples.flatten().map { psam -> [psam.getSimpleName(), psam] }.set { pang_samples } //if no pang_samples pipeline stops here, but results from cov_to_pang_samples still get published
     
     emit:
     pang_samples = pang_samples //channel: [val(ID), path(ID.samples)]
@@ -224,7 +222,7 @@ workflow variant_calling {
     fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
     
     NBPs_fasta
-		.map { it -> [it.getSimpleName(), it] }
+		.map { Nfasta -> [Nfasta.getSimpleName(), Nfasta] }
 		.set { NBPs_fasta }
     
     /*
@@ -241,7 +239,7 @@ workflow variant_calling {
     Checking the breadth and the coverage of bams on the pangenome/ref-genome. Downsampling to even coverage and merging into one bam-file.
     */
     pang_to_bams.out.pang_sqm
-		.map { [it.getSimpleName(), it] }
+		.map { pangsqm -> [pangsqm.getSimpleName(), pangsqm] }
 		.set { pang_sqm }
 
     //If using reference genome, either give empty file if no contigs were provided, or use the contigs_tsv
@@ -255,12 +253,12 @@ workflow variant_calling {
     }
     else {
 	contigs_tsv
-                .map { it -> [it.getSimpleName(), it] }
+                .map { contsv -> [contsv.getSimpleName(), contsv] }
                 .set { contigs_to_downsample }
         downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0))
     }
 
-    downsample_bams_merge.out.not_passed_message.map { it -> it.text.strip() }.view()
+    downsample_bams_merge.out.not_passed_message.map { npmsg -> npmsg.text.strip() }.view()
     
     /*
     Running freebayes on the merged bam to get a filtered vcf file.
@@ -273,7 +271,7 @@ workflow variant_calling {
     Run pogenom
     */
     calc_pang_div(vcf_gff_ch)
-    calc_pang_div.out.success_message.map { it -> it.text.strip() }.view()
+    calc_pang_div.out.success_message.map {  sumsg -> sumsg.text.strip() }.view()
     
 }
 
@@ -295,7 +293,10 @@ log.info paramsSummaryLog(workflow)
 
 //Check project parameter
 def badChars = ["^","(",")","+", " ", "|"]
-if ( params.project.findAll { a -> badChars.any { a.contains(it) } } ) {
+//findAll goes through each character (pchar) of the project name
+//pchar is checked against each element (bchar) in the badChars list
+// any pchar that matches a bchar will be added to a list which is returned. No bad pchar = no list = false/no exception.
+if ( params.project.findAll { pchar -> badChars.any { bchar -> pchar.contains(bchar) } } ) {
 	throw new Exception("Invalid project name. Special characters and whitespaces not allowed.")
 }
 
@@ -332,7 +333,7 @@ if (params.bins != null && params.ref_genome != null) {
     the map_and_detect_variants workflow.
     */
     if ( params.ref_genome != null ) {
-        Channel.fromPath( "${params.ref_genome}" , type: "file", checkIfExists: true ).multiMap { it -> core: NBPs: it }.set { ref_gen }
+        Channel.fromPath( "${params.ref_genome}" , type: "file", checkIfExists: true ).multiMap { rgome -> core: NBPs: rgome }.set { ref_gen }
         /*
         When using a reference genome we don't have core and consensus,
         therefore handling the reference as both.
@@ -395,7 +396,7 @@ if (params.bins != null && params.ref_genome != null) {
     	NBPs_ch = pangenome_assembly.out.NBPs_fasta
     	contigs_ch = pangenome_assembly.out.contigs_tsv
 	
-	core_ch.multiMap { it -> to_map: to_variants: it }.set { core_ch }
+	core_ch.multiMap { core -> to_map: to_variants: core }.set { core_ch }
     	match_samps_to_pang(core_ch.to_map, sub_reads, readcounts)
     }
     if ( params.run_VC == true ) {
