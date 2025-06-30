@@ -105,7 +105,7 @@ workflow provided_bins {
         //there should be a check that there's fastas in the dir too, maybe in the workflow or the process?
         bins_dir = Channel.fromPath(params.bins, type: "dir", checkIfExists: true)
         fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true) //should be subsampled fastqs provided by user
-	//if taxonomy and completeness already provided, don't need to run this. Might add something for it in the future.
+        //if taxonomy and completeness already provided, don't need to run this. Might add something for it in the future.
         classify_bins(sample_file, bins_dir, fastq_dir.first())
         classify_bins.out.bintable.multiMap { btchan -> to_emit: to_summarize: btchan }.set { ch_bintables }
         summarize_bintables(ch_bintables.to_summarize)
