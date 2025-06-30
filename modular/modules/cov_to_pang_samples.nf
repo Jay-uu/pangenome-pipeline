@@ -17,8 +17,8 @@ process cov_to_pang_samples {
     label "cov_to_pang_samples"
     tag "All_mOTUs"
     publishDir "${params.project}/mOTUs", mode: "copy", pattern: "*.*.tsv", failOnError: false
-    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", failOnError: false, saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getBaseName()}"}
-    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "samples/*.samples",failOnError: false, saveAs: {"${file(it).getSimpleName()}/pangenome/${file(it).getSimpleName()}.samples"}
+    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", failOnError: false, saveAs: { covcpm -> "${file(covcpm).getSimpleName()}/pangenome/${file(covcpm).getBaseName()}"}
+    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "samples/*.samples",failOnError: false, saveAs: {samps -> "${file(samps).getSimpleName()}/pangenome/${file(samps).getSimpleName()}.samples"}
     input:
     path(coverage)
     path(samples_file)
