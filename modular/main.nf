@@ -282,49 +282,49 @@ workflow {
         log.info paramsHelp("nextflow run main.nf --project <project_name> --samples <tsv.samples> --fastq <path/to/dir> --threads <nr> \n\n  To get more info about a specific parameter write nextflow run main.nf --help <parameter_name>")
         log.info "You can supply a config file with the parameters using -params-file. For more info check the GitHub page ${workflow.manifest.homePage} "
 
-        exit 0
+        //exit 0
     }
+    else {
+        // Validate input parameters
+        validateParameters()
 
-// Validate input parameters
-validateParameters()
+        // Print summary of supplied parameters
+        log.info paramsSummaryLog(workflow)
 
-// Print summary of supplied parameters
-log.info paramsSummaryLog(workflow)
+        //Check project parameter
+        def badChars = ["^","(",")","+", " ", "|"]
+        //findAll goes through each character (pchar) of the project name
+        //pchar is checked against each element (bchar) in the badChars list
+        // any pchar that matches a bchar will be added to a list which is returned. No bad pchar = no list = false/no exception.
+        if ( params.project.findAll { pchar -> badChars.any { bchar -> pchar.contains(bchar) } } ) {
+	        throw new Exception("Invalid project name. Special characters and whitespaces not allowed.")
+        }
 
-//Check project parameter
-def badChars = ["^","(",")","+", " ", "|"]
-//findAll goes through each character (pchar) of the project name
-//pchar is checked against each element (bchar) in the badChars list
-// any pchar that matches a bchar will be added to a list which is returned. No bad pchar = no list = false/no exception.
-if ( params.project.findAll { pchar -> badChars.any { bchar -> pchar.contains(bchar) } } ) {
-	throw new Exception("Invalid project name. Special characters and whitespaces not allowed.")
-}
+        //Gives a warning if project already exists
+        if (workflow.resume == false) {
+	        //Workflow was not resumed, checking project dir
+	        Path projDir = new File(params.project).toPath()
+	        if (projDir.exists() == true) {
+		        throw new Exception("Project directory $params.project already exists, choose a new name or use the -resume flag. WARNING: Note that if you resume the wrong job, this might overwrite previous results.")
+	        }
+        }
 
-//Gives a warning if project already exists
-if (workflow.resume == false) {
-	//Workflow was not resumed, checking project dir
-	Path projDir = new File(params.project).toPath()
-	if (projDir.exists() == true) {
-		throw new Exception("Project directory $params.project already exists, choose a new name or use the -resume flag. WARNING: Note that if you resume the wrong job, this might overwrite previous results.")
-	}
-}
-
-println "The subsample parameter is set to ${params.subsample}"
-if (params.subsample == false) {
-	//Currently we want to allow skipping subsampling for any entry
-	//if (params.bins == null) {
-	//    throw new Exception("Skipping subsampling is only allowed for the bin entry. Please provide a directory with --bins <path/to/dir> or set --subsample <true>.")
-	//}
-	if (params.bins != null && params.readcount == null) {
-	    throw new Exception("When skipping subsampling and using already constructed bins a tab delimited readcount file with Sample, Nr_fastqs, Total_reads needs to be provided with --readcount <path/to/file>")
-	    //file format Sample  Nr_fastqs       Total_reads
-	    //MAYBE UPDATE TO NOT REQUIRE NR_FASTQS BECAUSE IT'S OBSOLETE NOW
-	}
-    }
+        println "The subsample parameter is set to ${params.subsample}"
+        if (params.subsample == false) {
+	        //Currently we want to allow skipping subsampling for any entry
+	        //if (params.bins == null) {
+	        //    throw new Exception("Skipping subsampling is only allowed for the bin entry. Please provide a directory with --bins <path/to/dir> or set --subsample <true>.")
+	        //}
+	        if (params.bins != null && params.readcount == null) {
+	            throw new Exception("When skipping subsampling and using already constructed bins a tab delimited readcount file with Sample, Nr_fastqs, Total_reads needs to be provided with --readcount <path/to/file>")
+	            //file format Sample  Nr_fastqs       Total_reads
+	            //MAYBE UPDATE TO NOT REQUIRE NR_FASTQS BECAUSE IT'S OBSOLETE NOW
+	        }
+        }
     
-if (params.bins != null && params.ref_genome != null) {
-	throw new Exception("You can either provide pre-assembled bins or previously created reference genomes, but not both. Please use either the --bins flag or the --ref_genome flag. ")
-}
+        if (params.bins != null && params.ref_genome != null) {
+	        throw new Exception("You can either provide pre-assembled bins or previously created reference genomes, but not both. Please use either the --bins flag or the --ref_genome flag. ")
+        }
 
     println "Starting. Your results will be published at ${params.project}."
     
@@ -418,5 +418,5 @@ if (params.bins != null && params.ref_genome != null) {
         println "Your results can be found at ${params.project}\nHave fun!"
     }
 }
-
+}
 
