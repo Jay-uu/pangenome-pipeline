@@ -67,7 +67,12 @@ You might not always want to run the whole pipeline depending on your purposes. 
    ```nextflow run <path/to/modular/main.nf> --project <path/project_name> --samples <tsv.samples> --fastq <path/to/dir> --run_VC false```
 
 ## Subsampling
-By default the pipeline uses subsampling of the raw reads to map them to the pangenomes/reference genomes to get an estimate of expected coverage for a sample to a genome. This saves on computation time by not needing to map all reads to all genomes to determine which samples can contribute to the species diversity. Unless you have very few samples this is the recommended way to run the pipeline. 
+By default the pipeline uses subsampling of the raw reads to map them to the pangenomes/reference genomes to get an estimate of expected coverage for a sample to a genome. This saves on computation time by not needing to map all reads to all genomes to determine which samples can contribute to the species diversity. Unless you have very few samples this is the recommended way to run the pipeline.
+- Skipping subsampling:
+If you despite this want to skip sibsampling you can add ```subsample false``` to the run command.
+- Skipping subsampling with pre-existing bins:
+If you've previously run the pipeline and stopped after the binning step you can start from the bin entry and skip subsampling. You do this by
+```nextflow run <path/to/modular/main.nf> --project <path/new_project_name> --samples <path/old_project_name/subsamples/old_project_name.subsampled.samples> --fastq <path/old_project_name/subsamples/fastqs> --subsample false --readcount <path/old_project_name/subsamples/original_readcounts.tsv```
 
 # Configurations
 Instead of writing all your parameters on the command line you can write a parameter file and provide it using ```-params-file <parameter_file.yaml>```.
