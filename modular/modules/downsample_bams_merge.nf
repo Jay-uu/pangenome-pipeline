@@ -8,11 +8,15 @@ The downsampling shell code is modified from POGENOM's Input_pogenom pipeline by
 See here: https://github.com/EnvGen/POGENOM/blob/master/Input_POGENOM/src/cov_bdrth_in_dataset.sh
 */
 process downsample_bams_merge {
-    publishDir "${params.project}/mOTUs/results/${pang_id}/pangenome", pattern: "cov_breadth.txt"
+    publishDir "${project_path}/mOTUs/results/${pang_id}/pangenome", pattern: "cov_breadth.txt"
     label "downsample_bams_merge"
     tag "${pang_id}"
     input:
     tuple(val(pang_id), path(pang_sqm), path(contigs_tsv))
+    val(project_path)
+    val(min_cov)
+    val(min_breadth)
+    val(min_contig_len)
     output:
     tuple(path("${pang_sqm}_long_contigs.fasta"), path("${pang_sqm}_merged.bam"), optional: true, emit: ref_merged)
     path("NOT_PASSED.txt"), optional: true, emit: not_passed_message
@@ -56,8 +60,8 @@ process downsample_bams_merge {
         #mpileupfile=tmp.mpileup
         outbamfile=\$(basename \$bam bam)downsampled.bam #name of output
         mag=${pang_sqm} #pangenome name
-        mincov=${params.min_cov}
-        minbreadth=${params.min_breadth}
+        mincov=${min_cov}
+        minbreadth=${min_breadth}
         samplename=\$(basename \${bam#"\${mag}."} .bam) #this might be bugged. When testing manually it's just the samplename but my output file is mag.sample. Not removing string successfully.
 
         #--- Median coverage
@@ -96,11 +100,11 @@ process downsample_bams_merge {
          echo "No sample fit the alignment criteria. Skipping further analysis for ${pang_sqm}"
          cat "WARNING: No sample fit the alignment criteria for ${pang_sqm}. If you want to analyze this sample further try lowering --min_cov and/or --min_breadth." > NOT_PASSED.txt
     else
-        echo "Merging downsampled bams. and creating fasta of pangenome with only NBPs over ${params.min_contig_len} bases."
+        echo "Merging downsampled bams. and creating fasta of pangenome with only NBPs over ${min_contig_len} bases."
         ls ${pang_sqm}_mergeable/*.bam > bamlist.txt
         samtools merge -o ${pang_sqm}_merged.bam -b bamlist.txt --threads ${task.cpus}
         samtools index ${pang_sqm}_merged.bam -@ ${task.cpus}
-        samtools idxstats ${pang_sqm}_merged.bam --threads ${task.cpus}| awk '\$2 >= '${params.min_contig_len}' { print \$0 }' > long_contigs.tsv
+        samtools idxstats ${pang_sqm}_merged.bam --threads ${task.cpus}| awk '\$2 >= '${min_contig_len}' { print \$0 }' > long_contigs.tsv
         awk '{ print \$1 }' long_contigs.tsv > contig_names.tsv
         #seqtk doesn't allow multithreading
         seqtk subseq ${pang_sqm}/results/01.*.fasta contig_names.tsv > ${pang_sqm}_long_contigs.fasta

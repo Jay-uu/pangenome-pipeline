@@ -2,11 +2,14 @@
 This process calculates which pangenomes have enough samples that pass the expected average coverage threshold to create new .samples files
 for the pangenomes that will then be used to align the reads of those samples to the pangenomes for further analysis. Input should be the 
 collected output from map_subset coverage, single_samps and subsample_fastqs readcount, so that all samples are processed with one process run.
+There might not be any samples with enough coverage, which will print a message, but still result in a succesful process run.
 Input: 
+       NB: All inputs are channels with files/values.
        coverage: A file with samtools coverage output, which has the depth of how reads from a sample mapped to a pangenome/reference genome.
        singles: The previously generated .samples files with which reads belong to which sample.
        readcounts: A file named {sample}_readcount.txt which contains the total number of reads per sample.
        in those fastqs.
+       ADD THE REST HERE
 Output:
        pang_cpm_cov: Two files, one with the calculated results for CPM and the other with coverage.
        pang_samples: The new .samples files for the pangenomes.
@@ -16,13 +19,17 @@ process cov_to_pang_samples {
     label "low_cpu"
     label "cov_to_pang_samples"
     tag "All_mOTUs"
-    publishDir "${params.project}/mOTUs", mode: "copy", pattern: "*.*.tsv", failOnError: false
-    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", failOnError: false, saveAs: { covcpm -> "${file(covcpm).getSimpleName()}/pangenome/${file(covcpm).getBaseName()}"}
-    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "samples/*.samples",failOnError: false, saveAs: {samps -> "${file(samps).getSimpleName()}/pangenome/${file(samps).getSimpleName()}.samples"}
+    publishDir "${project_path}/mOTUs", mode: "copy", pattern: "*.*.tsv", failOnError: false
+    publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", failOnError: false, saveAs: { covcpm -> "${file(covcpm).getSimpleName()}/pangenome/${file(covcpm).getBaseName()}"}
+    publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "samples/*.samples",failOnError: false, saveAs: {samps -> "${file(samps).getSimpleName()}/pangenome/${file(samps).getSimpleName()}.samples"}
     input:
     path(coverage)
     path(samples_file)
     path(readcounts)
+    val(project_path)
+    val(min_cov)
+    val(nr_samps_threshold)
+    val(nr_subsamp)
     output:
     path("*.*.tsv", emit: pang_cpm_cov)
     path("samples/*.samples", optional: true, emit: pang_samples)
@@ -37,12 +44,12 @@ process cov_to_pang_samples {
     import glob
     
     SAMPS_FILE = "${samples_file}"
-    COV_THRESHOLD = ${params.min_cov}
-    NR_SAMPS_THRESHOLD = ${params.nr_samps_threshold}
-    NR_SUBSAMP = ${params.nr_subsamp}
-    PROJECT = os.path.basename("${params.project}".rstrip("/"))
+    COV_THRESHOLD = ${min_cov}
+    NR_SAMPS_THRESHOLD = ${nr_samps_threshold}
+    NR_SUBSAMP = ${nr_subsamp}
+    PROJECT = os.path.basename("${project_path}".rstrip("/"))
     
-    print(f"Project is ${params.project}")
+    print(f"Project is ${project_path}")
     
     #Input: 
     #   cov = dataframe of samtools coverage output

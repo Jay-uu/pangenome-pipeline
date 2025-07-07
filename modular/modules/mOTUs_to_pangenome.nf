@@ -6,13 +6,15 @@ Output is a directory with a subdirectory for the mOTU, containing the pangenome
 This could possibly be changed to have different script parts, which would mean that I can have the python code for changing the name of the file and the fasta headers (the else part) directly in the process instead of in a separate script.
 */
 process mOTUs_to_pangenome {
-    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome", mode: "copyNoFollow",  pattern: "pangenomes/${mOTU_dir}", saveAs: { "superpang/" }
-    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/pangenome/superpang/", mode: "copy", pattern: "*contigs.tsv"
-    publishDir "${params.project}/mOTUs/results/${mOTU_dir}/", mode: "copy", pattern: "input_bins.txt", saveAs: { "pang_bins.txt" }
+    publishDir "${project_path}/mOTUs/results/${mOTU_dir}/pangenome", mode: "copyNoFollow",  pattern: "pangenomes/${mOTU_dir}", saveAs: { "superpang/" }
+    publishDir "${project_path}/mOTUs/results/${mOTU_dir}/pangenome/superpang/", mode: "copy", pattern: "*contigs.tsv"
+    publishDir "${project_path}/mOTUs/results/${mOTU_dir}/", mode: "copy", pattern: "input_bins.txt", saveAs: { "pang_bins.txt" }
     label "mOTUs_to_pangenome"
     tag "${mOTU_dir.baseName}"
     input:
     tuple(path(mOTU_dir), path(bintable))
+    val(project_path)
+    val(min_contig_len)
     output:
     path("pangenomes/${mOTU_dir}", type: "dir", emit: pangenome_dir)
     path("pangenomes/${mOTU_dir}/*.NBPs.fasta", emit: NBPs_fasta)
@@ -34,7 +36,7 @@ process mOTUs_to_pangenome {
     os.makedirs(pg_dir_name)
     mOTU_dir = "${mOTU_dir}"
     core_name = f"{pg_dir_name}/{mOTU_dir}/" + mOTU_dir + ".NBPs.core.fasta"
-    min_contig_len = ${params.min_contig_len}
+    min_contig_len = ${min_contig_len}
 
     #Making a file with the bins used for creating the pangenome
     with open("input_bins.txt", "w") as fastas:

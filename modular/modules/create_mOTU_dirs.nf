@@ -12,6 +12,8 @@ process create_mOTU_dirs {
     input:
     tuple(val(group), path(motus_file), path(bintable))
     path(bins)
+    val(MAGcontam)
+    val(min_mOTU_MAGs)
     output:
     tuple(path("${group}_mOTU_*", type: "dir"), path("${bintable}"), optional: true)
     script:
@@ -22,8 +24,8 @@ process create_mOTU_dirs {
     import pandas as pd
     import glob
 
-    min_genomes = ${params.min_mOTU_MAGs} #nextflow param
-    max_contam = ${params.MAGcontam} #nf param
+    min_genomes = ${min_mOTU_MAGs} #nextflow param
+    max_contam = ${MAGcontam} #nf param
     bintdf = pd.read_csv("${bintable}", sep = '\t')
 
     if max_contam < 0:

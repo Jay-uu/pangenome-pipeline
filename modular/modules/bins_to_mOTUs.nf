@@ -6,13 +6,16 @@ a tsv with which bins belong to which mOTU, and the bintable file with quality d
 */
 process bins_to_mOTUs {
     //This process sometimes fails on UPPMAX due to lack of memory. Might implement something like this: https://www.nextflow.io/docs/latest/process.html#dynamic-computing-resources
-    publishDir "${params.project}/mOTUs/mOTUlizer", mode: "copy", pattern: "*_similarities.txt", saveAs: { filename -> "${tax_dir}" - "_bins" + "/" + filename }
-    publishDir "${params.project}/mOTUs/mOTUlizer", mode: "copy", pattern: "*_mOTUs.tsv", saveAs: { filename -> "${tax_dir}" - "_bins" + "/" + filename }
+    publishDir "${project_path}/mOTUs/mOTUlizer", mode: "copy", pattern: "*_similarities.txt", saveAs: { filename -> "${tax_dir}" - "_bins" + "/" + filename }
+    publishDir "${project_path}/mOTUs/mOTUlizer", mode: "copy", pattern: "*_mOTUs.tsv", saveAs: { filename -> "${tax_dir}" - "_bins" + "/" + filename }
     label "low_cpu"
     label "bins_to_mOTUs"
     tag "${tax_dir.simpleName}"
     input:
     path(tax_dir)
+    val(project_path)
+    val(MAGcomplete)
+    val(MAGcontam)
     output:
     tuple(env('group'), path("*_mOTUs.tsv"), path("${tax_dir}/*.bintable"), emit: mOTUs_tuple)
     path("*_similarities.txt", emit: simi_file)
@@ -22,6 +25,6 @@ process bins_to_mOTUs {
     group="${tax_dir}"
     group=\${group%"_bins"}
     echo \$group
-    mOTUlize.py --fnas ${tax_dir}/*.fa --checkm ${tax_dir}/*.bintable --MAG-completeness ${params.MAGcomplete} --MAG-contamination ${params.MAGcontam} --threads ${task.cpus} --keep-simi-file \${group}_similarities.txt -o \${group}_mOTUs.tsv
+    mOTUlize.py --fnas ${tax_dir}/*.fa --checkm ${tax_dir}/*.bintable --MAG-completeness ${MAGcomplete} --MAG-contamination ${MAGcontam} --threads ${task.cpus} --keep-simi-file \${group}_similarities.txt -o \${group}_mOTUs.tsv
     """
 }

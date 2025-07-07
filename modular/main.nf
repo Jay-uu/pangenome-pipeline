@@ -53,17 +53,21 @@ workflow subsample_reads {
     samples_files //samples path
     fastq_ch // fastq dir path
     proj_name //project name string
+    nr_subsamp //params.nr_subsamp
 
     main:
+    proj_ch = Channel.value(proj_name)
+    nr_subsamp_ch = Channel.value(nr_subsamp)
+
     //Subsample fastq files
-    subsample_fastqs(samples_files, fastq_ch.first())
+    subsample_fastqs(samples_files, fastq_ch.first(), proj_ch, nr_subsamp_ch)
 
     //Mapping channel to be able to concatenate the readcounts and publish them, as well as send to next WF.
     subsample_fastqs.out.readcount.multiMap { ch -> to_emit: to_concat: ch }.set { ch_readcounts }
 
     //Publish concatenated files
-    concat_readcounts(ch_readcounts.to_concat, proj_name)
-    concat_subsamp_samples(subsample_fastqs.out.sample_file, proj_name)
+    concat_readcounts(ch_readcounts.to_concat, proj_ch)
+    concat_subsamp_samples(subsample_fastqs.out.sample_file, proj_ch)
 
     emit:
     sub_reads = subsample_fastqs.out.sub_reads //channel: [val("ID"), path("sub_ID.fq.gz")]
@@ -76,26 +80,30 @@ workflow raw_to_bins {
     fq_path //fastq param
     samp_file //samples file param
     proj_name //project name param
+    binners //params.binners
+    nr_subsamp
     main:
     //The dir with all the fastqs
     Channel.fromPath(fq_path, type: "dir", checkIfExists: true).multiMap { ch -> to_format: to_assembly: to_subsamp: ch }.set { fastq_ch }
-
     //File with which fastq files belong to which samples. Tab delimited with sample-name, fastq file name and pair.
     sam_ch = Channel.fromPath(samp_file, type: "file", checkIfExists: true)
+
+    proj_ch = Channel.value(proj_name)
+    binners_ch = Channel.value(binners)
 
     //Runs the process that creates individual samples files
     format_samples(sam_ch, fastq_ch.to_format)
     format_samples.out.flatten().multiMap { ch -> to_subsamp: to_assembly: ch }.set { samples_files }
 
     //Binning
-    fastq_to_bins(samples_files.to_assembly, fastq_ch.to_assembly.first())
+    fastq_to_bins(samples_files.to_assembly, fastq_ch.to_assembly.first(), proj_ch, binners_ch)
 
     //Summarizing bintables into one file and only printing certain columns
     fastq_to_bins.out.bintable.multiMap { ch -> to_emit: to_summarize: ch }.set { ch_bintables }
-    summarize_bintables(ch_bintables.to_summarize, proj_name)
+    summarize_bintables(ch_bintables.to_summarize, proj_ch)
 
     //Concatenating fastqs and subsampling for later mapping for each singles sample
-    subsample_reads(samples_files.to_subsamp, fastq_ch.to_subsamp, proj_name)
+    subsample_reads(samples_files.to_subsamp, fastq_ch.to_subsamp, proj_name, nr_subsamp)
 
     emit:
     bins = fastq_to_bins.out.bins //channel: path(ID/results/bins/*.fa)
@@ -110,9 +118,12 @@ workflow provided_bins {
     bins_path // path to dir with bins in fasta format
     fastq_path // fastq dir path
     to_subsamp // boolean to subsample or not
-    proj_name // if subsamp need proj_name
+    proj_name // needed for publishdir
     readcount // if not subsamp, need readcount file path. Can be null if subsamp is true.
+    nr_subsamp
     main:
+    proj_ch = Channel.value(proj_name)
+
     sam_ch = Channel.fromPath(sample_path, type: "file", checkIfExists: true)
     sam_ch.multiMap { ch -> to_classify: to_format: ch }.set { sam_ch }
 
@@ -123,15 +134,15 @@ workflow provided_bins {
     fastq_ch.multiMap { ch -> to_classify: to_format: to_sub: ch }.set { fastq_ch }
     
     //if taxonomy and completeness already provided, don't need to run this. Might add something for it in the future.
-    classify_bins(sam_ch.to_classify, bins_dir, fastq_ch.to_classify.first())
+    classify_bins(sam_ch.to_classify, bins_dir, fastq_ch.to_classify.first(), proj_ch)
     classify_bins.out.bintable.multiMap { ch -> to_emit: to_summarize: ch }.set { ch_bintables }
-    summarize_bintables(ch_bintables.to_summarize, proj_name)
+    summarize_bintables(ch_bintables.to_summarize, proj_ch)
 
     format_samples(sam_ch.to_format, fastq_ch.to_format)
     samples_files = format_samples.out.flatten()
 
     if (to_subsamp == true) {
-        subsample_reads(samples_files, fastq_ch.to_sub, proj_name)
+        subsample_reads(samples_files, fastq_ch.to_sub, proj_name, nr_subsamp)
         readcounts = subsample_reads.out.readcounts
         sub_reads = subsample_reads.out.sub_reads
     }
@@ -159,7 +170,9 @@ workflow pangenome_assembly {
     proj_name //project name string
     MAGcomplete // Minimum MAG completeness threshold
     MAGcontam //Maximum MAG contamination threshold
-
+    min_mOTU // min_mOTU_MAGs parameter
+    min_contig_len //min_contig_len parameter
+    tax_sort //params.taxSort
     main:
     /*
     Before running mOTUlizer, the checkM and GTDB-Tk outputs (bintables) need to be parsed.
@@ -169,11 +182,14 @@ workflow pangenome_assembly {
     proj_ch = Channel.value(proj_name)
     MAGcomplete_ch = Channel.value(MAGcomplete)
     MAGcontam_ch = Channel.value(MAGcontam)
+    min_mOTU_ch = Channel.value(min_mOTU)
+    min_contig_len_ch = Channel.value(min_contig_len)
+    tax_sort_ch = Channel.value(tax_sort)
 
     bintable.collect().set { all_bintables }
     bins.collect().multiMap { ch -> to_tax_parser: to_mOTU_dirs: ch }.set { all_bins }
 
-    parse_taxonomies(all_bins.to_tax_parser, all_bintables)
+    parse_taxonomies(all_bins.to_tax_parser, all_bintables, tax_sort_ch, MAGcomplete_ch, MAGcontam_ch)
 
     /*
     	Clustering of bins, if they've been presorted to lower taxonomic ranks this can spawn parallell processes
@@ -184,13 +200,13 @@ workflow pangenome_assembly {
     	Creating dirs for the mOTUs by sorting based on the mOTUlizer output,
     	so each mOTU directory has the correct bins.
     	*/
-    create_mOTU_dirs(bins_to_mOTUs.out.mOTUs_tuple, all_bins.to_mOTU_dirs)
+    create_mOTU_dirs(bins_to_mOTUs.out.mOTUs_tuple, all_bins.to_mOTU_dirs, MAGcontam_ch, min_mOTU_ch)
 
     /*
     	Running SuperPang, creating pangenomes. Transpose makes it so that each mOTU from the same grouping within
     	the taxonomy selection will be sent individually to the process together with the matching bintable.
     	*/
-    mOTUs_to_pangenome(create_mOTU_dirs.out.transpose())
+    mOTUs_to_pangenome(create_mOTU_dirs.out.transpose(), proj_ch, min_contig_len_ch)
 
     /*
     	The checkm2 process will need to be updated when checkm2 is in the SQM env.
@@ -205,10 +221,14 @@ workflow pangenome_assembly {
 
 workflow match_samps_to_pang {
     take:
-    sample_path // samples file path
+    sample_path // samples file path param
     core_fasta //channel: path(core.fasta)
     sub_reads //channel: path()
     readcounts //channel: path()
+    project_path //project path param
+    minimum_coverage //min_cov param
+    nr_samps_threshold // nr_samps_threshold param
+    nr_subsamp //nr_subsamp param
 
     main:
     /*
@@ -223,9 +243,15 @@ workflow match_samps_to_pang {
     Using the coverage from the mapping, decides which reads "belong" to which pangenome and creates new .samples files
     */
     sample_file = Channel.fromPath(sample_path, type: "file", checkIfExists: true)
-    cov_to_pang_samples(map_subset.out.coverage.collect(), sample_file.first(), readcounts.collect())
+    proj_ch = Channel.value(project_path)
+    min_cov_ch = Channel.value(minimum_coverage)
+    nr_samps_ch = Channel.value(nr_samps_threshold)
+    nr_subsamp_ch = Channel.value(nr_subsamp)
+
+    cov_to_pang_samples(map_subset.out.coverage.collect(), sample_file.first(), readcounts.collect(), proj_ch, min_cov_ch, nr_samps_ch, nr_subsamp_ch)
     cov_to_pang_samples.out.not_passed_message.map { msg -> msg.text.strip() }.view()
     //This file only gets created if not enough samples, meaning the text only gets printed if pipeline stops here.
+
     cov_to_pang_samples.out.pang_samples.flatten().map { psam -> [psam.getSimpleName(), psam] }.set { pang_samples }
 
     emit:
@@ -239,12 +265,24 @@ workflow variant_calling {
     NBPs_fasta //channel: path(NBPs.fasta)
     pang_samples //channel: [val(ID), path(ID.samples)] or if subsample == false path(project.samples)
     contigs_tsv //channel: path(contigs.tsv)
-    ref_genome
-    contigs_path
+    ref_genome // null or an individual reference genome fasta file
+    contigs_path // either null or a file with contig names
+    proj_name //project name string
+    min_locus_cov   //minimum locus coverage parameter for pogenom
+    min_cov //params.min_cov
+    min_breadth //params.min_breadth
+    min_contig_len //params.min_contig_len
+    block_size //params.block_size
 
     main:
     //Going to mutliple processes
     fastq_dir = Channel.fromPath(fastq_path, type: "dir", checkIfExists: true)
+    proj_ch = Channel.value(proj_name)
+    min_locus_cov_ch = Channel.value(min_locus_cov)
+    min_cov_ch = Channel.value(min_cov)
+    min_breadth_ch = Channel.value(min_breadth)
+    min_contig_len_ch = Channel.value(min_contig_len)
+    block_size_ch = Channel.value(block_size)
 
     NBPs_fasta
         .map { Nfasta -> [Nfasta.getSimpleName(), Nfasta] }
@@ -254,11 +292,11 @@ workflow variant_calling {
     Using the generated samples files for the pangenome, the raw reads and the pangenome assembly to map reads using SqueezeMeta.
     */
     if (subsample == true) {
-        pang_to_bams(NBPs_fasta.combine(pang_samples, by: 0), fastq_dir.first())
+        pang_to_bams(NBPs_fasta.combine(pang_samples, by: 0), fastq_dir.first(), proj_ch, block_size_ch)
     }
     else {
         //Here the full samples file will be used for each fasta, since no subsampling was done to test which have good coverage
-        pang_to_bams(NBPs_fasta.combine(pang_samples), fastq_dir.first())
+        pang_to_bams(NBPs_fasta.combine(pang_samples), fastq_dir.first(), proj_ch, block_size_ch)
     }
     /*
     Checking the breadth and the coverage of bams on the pangenome/ref-genome. Downsampling to even coverage and merging into one bam-file.
@@ -274,13 +312,13 @@ workflow variant_calling {
             NO_FILE = file("no_file.text")
             contigs_tsv = Channel.fromPath(NO_FILE, type: "file")
         }
-        downsample_bams_merge(pang_sqm.combine(contigs_tsv))
+        downsample_bams_merge(pang_sqm.combine(contigs_tsv), proj_ch, min_cov_ch, min_breadth_ch, min_contig_len_ch)
     }
     else {
         contigs_tsv
             .map { contsv -> [contsv.getSimpleName(), contsv] }
             .set { contigs_to_downsample }
-        downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0))
+        downsample_bams_merge(pang_sqm.combine(contigs_to_downsample, by: 0), proj_ch, min_cov_ch, min_breadth_ch, min_contig_len_ch)
     }
 
     downsample_bams_merge.out.not_passed_message.map { msg -> msg.text.strip() }.view()
@@ -288,14 +326,14 @@ workflow variant_calling {
     /*
     Running freebayes on the merged bam to get a filtered vcf file.
     */
-    detect_variants(downsample_bams_merge.out.ref_merged)
+    detect_variants(downsample_bams_merge.out.ref_merged, proj_ch)
 
     //Need to match vcf with right gff
     vcf_gff_ch = detect_variants.out.filt_vcf.combine(pang_to_bams.out.id_gff_genome, by: 0)
     /*
     Run pogenom
     */
-    calc_pang_div(vcf_gff_ch)
+    calc_pang_div(vcf_gff_ch, proj_ch, min_locus_cov_ch)
     calc_pang_div.out.success_message.map { msg -> msg.text.strip() }.view()
 }
 
@@ -377,19 +415,20 @@ workflow {
 
                 format_samples(sam_ch, fastq_ch)
                 samples_files = format_samples.out.flatten()
-                subsample_reads(samples_files, fastq_ch, params.project)
+                subsample_reads(samples_files, fastq_ch, params.project, params.nr_subsamp)
 
                 readcounts = subsample_reads.out.readcounts
                 sub_reads = subsample_reads.out.sub_reads
 
-                match_samps_to_pang(params.samples, core_ch, sub_reads, readcounts)
+                match_samps_to_pang(params.samples, core_ch, sub_reads, readcounts, params.project, params.min_cov,
+                                    params.nr_samps_threshold, params.nr_subsamp)
             }
         }
         else {
             //If bins were provided we don't need to do assembly
             if (params.bins != null) {
-                //How to deal with readcount optional input?
-                provided_bins(params.samples, params.bins, params.fastq, params.subsample, params.project, params.readcount)
+                //Optional inputs can be null
+                provided_bins(params.samples, params.bins, params.fastq, params.subsample, params.project, params.readcount, params.nr_subsamp)
                 bins_ch = provided_bins.out.bins
                 bintable_ch = provided_bins.out.bintable
                 sub_reads = provided_bins.out.sub_reads
@@ -399,7 +438,7 @@ workflow {
                 /*
     	        Runs assembly and binning.
     	        */
-                raw_to_bins(params.fastq, params.samples, params.project)
+                raw_to_bins(params.fastq, params.samples, params.project, params.binners, params.nr_subsamp)
                 bins_ch = raw_to_bins.out.bins
                 bintable_ch = raw_to_bins.out.bintable
                 sub_reads = raw_to_bins.out.sub_reads
@@ -408,23 +447,28 @@ workflow {
             /*
     	This workflow will cluster bins, create pangenomes, and send out core and NBPs fasta files for the pangenomes.
     	*/
-            pangenome_assembly(bins_ch, bintable_ch, params.project, params.MAGcomplete, params.MAGcontam)
+            pangenome_assembly(bins_ch, bintable_ch, params.project, params.MAGcomplete, params.MAGcontam, params.min_mOTU_MAGs,
+                               params.min_contig_len, params.taxSort)
 
             core_ch = pangenome_assembly.out.core_fasta
             NBPs_ch = pangenome_assembly.out.NBPs_fasta
             contigs_ch = pangenome_assembly.out.contigs_tsv
 
             core_ch.multiMap { ch -> to_map: to_variants: ch }.set { core_ch }
-            match_samps_to_pang(params.samples, core_ch.to_map, sub_reads, readcounts)
+            match_samps_to_pang(params.samples, core_ch.to_map, sub_reads, readcounts, params.project, params.min_cov,
+                                params.nr_samps_threshold, params.nr_subsamp)
         }
         if (params.run_VC == true) {
             if (params.subsample == true) {
                 //Use only the samples with estimated good coverage from the subsampled reads.
-                variant_calling(params.fastq, params.subsample, NBPs_ch, match_samps_to_pang.out.pang_samples, contigs_ch, params.ref_genome, params.contigs)
+                variant_calling(params.fastq, params.subsample, NBPs_ch, match_samps_to_pang.out.pang_samples, contigs_ch, params.ref_genome, params.contigs,
+                                params.project, params.min_locus_cov, params.min_cov, params.min_breadth, params.min_contig_len, params.block_size)
             }
             else if (params.force_variant_calling == true) {
                 //Using the full read files/all samples to map reads.
-                variant_calling(params.fastq, params.subsample, NBPs_ch, Channel.fromPath(params.samples, type: "file", checkIfExists: true), contigs_ch, params.ref_genome, params.contigs)
+                variant_calling(params.fastq, params.subsample, NBPs_ch, Channel.fromPath(params.samples, type: "file", checkIfExists: true),
+                                contigs_ch, params.ref_genome, params.contigs, params.project, params.min_locus_cov, params.min_cov,
+                                 params.min_breadth, params.min_contig_len, params.block_size)
             }
             else {
                 throw new Exception("It seems you're trying to run the variant calling workflow without subsampling. If you're sure about doing this, make sure to set --force_variant_calling to true.")

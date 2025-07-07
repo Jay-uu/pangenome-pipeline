@@ -4,12 +4,13 @@ Input: a pangenome/reference fasta file and a (preferably) downsampled and merge
 Output: A filtered vcf file.
 */
 process detect_variants {
-    publishDir "${params.project}/mOTUs/results", mode: "copy", pattern: "*.vcf", saveAs: { filename -> "${pangenome}" - "_long_contigs.fasta" + "/pangenome/pogenom/" + filename }
+    publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "*.vcf", saveAs: { filename -> "${pangenome}" - "_long_contigs.fasta" + "/pangenome/pogenom/" + filename }
     label "low_cpu"
     label "detect_variants"
     tag "${pangenome.baseName}"
     input:
     tuple(path(pangenome), path(bam))
+    val(project_path)
     output:
     tuple(env('pang_ID'), path("*_unfiltered.vcf"), optional: true, emit: filt_vcf)
     path("*_samples.txt", emit: samps_txt)

@@ -8,10 +8,12 @@ process subsample_fastqs {
     label "low_cpu"
     label "subsample_fastqs"
     tag "${sample.baseName}"
-    publishDir "${params.project}/subsamples/fastqs", mode: "copy", pattern: "*.fq.gz"
+    publishDir "${project_path}/subsamples/fastqs", mode: "copy", pattern: "*.fq.gz"
     input:
     path(sample)
     path(fastq_dir)
+    val(project_path)
+    val(nr_subsamp)
     output:
     tuple(val("${sample.baseName}"), path("sub_*.fq.gz"), emit: sub_reads)
     path("*_readcounts.tsv", emit: readcount)
@@ -27,7 +29,7 @@ process subsample_fastqs {
     from subprocess import check_output
     import gzip
 
-    NR_SUBSAMP = int("${params.nr_subsamp}")
+    NR_SUBSAMP = int("${nr_subsamp}")
     FASTQ_FILES = os.listdir("${fastq_dir}")
     SAMPLE_ID = Path("${sample}").stem    
 

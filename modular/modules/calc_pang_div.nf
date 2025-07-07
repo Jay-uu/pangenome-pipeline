@@ -10,12 +10,14 @@ Output:
 	FST files from pogenom.
 */
 process calc_pang_div {
-    publishDir "${params.project}/mOTUs/results/${pang_ID}/pangenome/pogenom", mode: "copy", pattern: "results"
+    publishDir "${project_path}/mOTUs/results/${pang_ID}/pangenome/pogenom", mode: "copy", pattern: "results"
     errorStrategy "ignore"
     label "calc_pang_div"
     tag "${pang_ID}"
     input:
     tuple(val(pang_ID), path(vcf), path(gff), path(genome))
+    val(project_path)
+    val(min_locus_cov)
     output:
     path("results", type: "dir", optional: true, emit: pog_dir)
     path("SUCCESS.txt", type: "file", emit: success_message)
@@ -23,7 +25,7 @@ process calc_pang_div {
     """ 
     #!/usr/bin/env bash
     echo "Running pogenom for ${pang_ID}"
-    run-pogenom.py ${vcf} -f ${genome} --gff ${gff} --minCount ${params.min_locus_cov} -t ${task.cpus} -p ${pang_ID} -o results
+    run-pogenom.py ${vcf} -f ${genome} --gff ${gff} --minCount ${min_locus_cov} -t ${task.cpus} -p ${pang_ID} -o results
     #removing tmp dir
     rm -r results/temp
     
