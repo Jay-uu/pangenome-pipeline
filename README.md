@@ -51,8 +51,9 @@ You might not always want to run the whole pipeline depending on your purposes. 
 
  - Existing bins entrypoint:
    If you already have bins that you want to assemble into pangenomes you need to provide a directory with the fasta files for those bins.
+   For this entry you are assumed to have already subsampled your reads, and therefore need to provide a readcount file.
 
-   ```nextflow run <path/to/modular/main.nf> --project <path/project_name> --samples <tsv.samples> --fastq <path/to/dir> --bins <path/to/dir/with/bins/fastas>```
+   ```nextflow run <path/to/modular/main.nf> --project <path/project_name> --samples <tsv.samples> --fastq <path/to/dir> --bins <path/to/dir/with/bins/fastas> --readcount <path/to/readcount.txt>```
 
    For more info see the -extbins flag for [SqueezeMeta](https://github.com/jtamames/SqueezeMeta?tab=readme-ov-file#5-execution-restart-and-running-scripts)
 

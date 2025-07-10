@@ -1,0 +1,241 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
+  "title": ". pipeline parameters",
+  "description": "",
+  "type": "object",
+  "definitions": {
+    "alternative_entry_exit_points": {
+      "title": "Alternative entry-/exit-points",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "bins": {
+          "type": "string",
+          "description": "Skip assembly and binning. Provide a directory with assembled bins fasta files and readcount file.",
+          "help_text": "This entrypoint allows you to skip the binning step of the pipeline. You can provide already subsampled reads with --fastqs and thereby skip subsampling using --subsample false. Provide the path to a directory with all the bins you want to use. This entry-point also requires that you provide a readcount file for the samples you want to use. See --readcount -help for format."
+        },
+        "readcount": {
+          "type": "string",
+          "description": "A tab-delimited file with sample name and total reads (all fastqs combined)",
+          "help_text": "E.g.\nSample Total_reads\nSample1 1000000\nSample2 2000000\netc. for each sample\nMake sure the headers are correct!"
+        },
+        "ref_genome": {
+          "type": "string",
+          "description": "Path to a fasta file that you want to do variant calling with",
+          "help_text": "--ref_genome path/to/fasta/file\nThis will only run the variant calling workflow (Bowtie2, Freebayes, POGENOM) for the specified reference genome. Can be used with --contigs to only check specified contigs for diversity. Only one genome allowed."
+        },
+        "contigs": {
+          "type": "string",
+          "help_text": "A tsv with contig names and length, named <ref_genome.contigs.tsv> specifying the contigs you're interested in SNP analysis for.",
+          "description": "A TSV with contig names that you want to use for variant calling. If not provided will use whole reference fasta genome when starting from ref_genome. Otherwise ignored."
+        },
+        "run_VC": {
+          "type": "boolean",
+          "default": true,
+          "description": "If false stops the pipeline after assembling pangenomes.",
+          "help_text": "This parameter can be set to false to stop the pipeline after assembling pangenomes and mapping subsampled reads. Can be useful for running the pipeline in steps, and only with pangenomes of interest. "
+        }
+      }
+    },
+    "pangenome_parameters": {
+      "title": "Pangenome parameters",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "nr_samps_threshold": {
+          "type": "integer",
+          "default": 5,
+          "description": "Minimum number of matching samples for a pangenome to be considered for further analysis",
+          "help_text": "The minimum number of samples with good average expected coverage for a pangenome to be used for downstream analysis."
+        },
+        "block_size": {
+          "type": "integer",
+          "default": 2,
+          "description": "Controls the RAM-usage for DIAMOND when read mapping."
+        },
+        "nr_subsamp": {
+          "type": "integer",
+          "default": 1000000,
+          "description": "Number of reads to be subsampled from the raw fastq files",
+          "help_text": "You can modify how many reads should be subsampled to then be used for mapping against the pangenomes/reference genomes to determine which samples have good coverage for that genome."
+        },
+        "min_contig_len": {
+          "type": "integer",
+          "default": 1000,
+          "description": "Minimum length of contigs used for variant calling."
+        }
+      }
+    },
+    "pipeline_parameters": {
+      "title": "Pipeline parameters",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "project": {
+          "type": "string",
+          "help_text": "The name of your project. Creates a directory with this name, where results will be stored",
+          "description": "Project directory name"
+        },
+        "samples": {
+          "type": "string",
+          "help_text": "A tab-separated file with sample names in column 1, fastq file names in column 2 and readpair in column 3.",
+          "description": "Samples file",
+          "format": "file-path"
+        },
+        "fastq": {
+          "type": "string",
+          "help_text": "The path to the directory containing the raw fastq reads",
+          "description": "Fastq file directory with raw reads for all samples",
+          "format": "directory-path"
+        },
+        "threads": {
+          "type": "integer",
+          "default": 8,
+          "description": "nr threads, default 12",
+          "help_text": "Assign how many threads the pipeline can use at a time"
+        }
+      },
+      "required": ["project", "samples", "fastq"]
+    },
+    "motu_creation": {
+      "title": "mOTU creation",
+      "type": "object",
+      "description": "Settings for mOTUlizer and taxonomy parser",
+      "default": "",
+      "properties": {
+        "MAGcomplete": {
+          "type": "integer",
+          "default": 70,
+          "description": "Min. completeness of high quality MAGs",
+          "help_text": "Decides which bins/genomes are used to build the mOTU in mOTUlizer. Lower quality bins can still be recruited to mOTUs."
+        },
+        "MAGcontam": {
+          "type": "integer",
+          "default": 5,
+          "description": "Max. contamination of high quality MAGs",
+          "help_text": "Decides which bins/genomes are used to build the mOTU in mOTUlizer. Lower quality bins can still be recruited to mOTUs."
+        },
+        "min_mOTU_MAGs": {
+          "type": "integer",
+          "default": 1,
+          "description": "Minimum amount of MAGs necessary for a mOTU to be used for further analysis",
+          "help_text": "Sets how many genomes need to be part of the same mOTU for that mOTU to get it's own directory in the results mOTUs directory and to be used for pangenome analysis.\nThis parameter currently takes the sum of MAGs and SUBs to a mOTU."
+        },
+        "taxSort": {
+          "type": "string",
+          "default": "root",
+          "description": "Decides wich way to sort bins before clustering. Can lead to parallell clustering computation.",
+          "help_text": "Options:\nroot: sends all bins to the clustering tool together.\nauto: finds the lowest taxonomic rank where at least 90% of bins have been given a classification.\nPossible taxonomic ranks: domain, phylum, class, order, family, genus and species."
+        }
+      }
+    },
+    "subsampling": {
+      "title": "Subsampling",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "subsample": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to subsample the raw reads or not.",
+          "help_text": "Setting --subsample false means that the full raw reads will be used for checking which samples have good coverage over which pangenomes. Using the default of --subsample true is recommended, especially with many samples since that will save a lot of computation time."
+        },
+        "force_variant_calling": {
+          "type": "boolean",
+          "description": "Run variant calling and Pogenom even when subsampling is skipped",
+          "help_text": "Default behaviour is to not run the variant calling workflow when skipping subsampling. This parameter allows that to be bypassed, meaning that read mapping each sample to each pangenome/reference genome might take a very long time and use a lot of resources."
+        }
+      }
+    },
+    "assembly": {
+      "title": "Assembly",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "binners": {
+          "type": "string",
+          "default": "maxbin,metabat2,concoct",
+          "description": "Choose which binners to use when assembling",
+          "help_text": "Options are maxbin, metabat2 and concoct. By default the pipeline combines the results of all three. To use just one write --binners <tool>"
+        }
+      }
+    },
+    "coverage_threshold": {
+      "title": "Coverage threshold",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "min_locus_cov": {
+          "type": "integer",
+          "default": 10,
+          "description": "Minimum coverage required for a specific locus to be used for diversity analysis.",
+          "help_text": "Used for running POGENOM in calc_pang_div. If a locus has too low coverage it won't be included for that sample."
+        },
+        "min_cov": {
+          "type": "integer",
+          "default": 20,
+          "description": "Minimum coverage for a sample to be used for variant calling to a pangenome",
+          "help_text": "Used for estimating average coverage of subsampled reads to a pan-/reference genome and median coverage of mapped reads to core/contigs over min_contig_length. This determines how much coverage is required for a sample to a genome to be used for variant calling."
+        },
+        "min_breadth": {
+          "type": "integer",
+          "default": 40,
+          "description": "Minimum breadth required over core/selected contigs for a sample to be used for cariant calling",
+          "help_text": "Breadth is based on the alignment of all of a samples reads to a pangenome. Samples that pass the median coverage and breadth checks will be downsampled for even coverage between samples, and used to analyse variants within a pangenome."
+        }
+      }
+    },
+    "general_parameters": {
+      "title": "General parameters",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "validationFailUnrecognisedParams": {
+          "type": "boolean",
+          "default": true,
+          "hidden": true,
+          "description": "Makes sure that the pipeline doesn't run if for example a param was misspelled."
+        },
+        "help": {
+          "type": "string",
+          "help_text": "Information on how to use the pipeline",
+          "description": "Usage help"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/alternative_entry_exit_points"
+    },
+    {
+      "$ref": "#/definitions/pangenome_parameters"
+    },
+    {
+      "$ref": "#/definitions/pipeline_parameters"
+    },
+    {
+      "$ref": "#/definitions/motu_creation"
+    },
+    {
+      "$ref": "#/definitions/subsampling"
+    },
+    {
+      "$ref": "#/definitions/assembly"
+    },
+    {
+      "$ref": "#/definitions/coverage_threshold"
+    },
+    {
+      "$ref": "#/definitions/general_parameters"
+    }
+  ]
+}
