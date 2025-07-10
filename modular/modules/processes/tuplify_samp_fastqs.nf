@@ -1,4 +1,5 @@
 /*
+When skipping subsampling, the reads need to be formatted correctly 
 */
 
 process tuplify_samp_fastqs {
