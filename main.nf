@@ -125,6 +125,7 @@ workflow {
             NBPs_ch = pangenome_assembly.out.NBPs_fasta
             contigs_ch = pangenome_assembly.out.contigs_tsv
         }
+        //If we're subsampling or using already subsampled reads from entry 1 or 2 we estimate coverages to determine which samples our genomes are present in.
         if (params.subsample == true || params.readcount != null ) {
             match_samps_to_pang(params.samples, core_ch, sub_reads, readcounts, params.project, params.min_cov, params.nr_samps_threshold,
                                 params.nr_subsamp)
