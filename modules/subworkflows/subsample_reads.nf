@@ -21,7 +21,7 @@ workflow subsample_reads {
     sub_reads = null
     readcounts = null
 
-//fastqs are needed for formatting and subsampling/tuplifying
+    //fastqs are needed for formatting and subsampling/tuplifying
     fastq_dir.multiMap { ch -> to_sub_or_tup: to_format: ch }.set { fastq_ch }
     //Creating indivudal sample files from the one given
     format_samples(sample_file, fastq_ch.to_format)
@@ -42,7 +42,7 @@ workflow subsample_reads {
         concat_subsamp_samples(subsample_fastqs.out.sample_file, proj_name)
 
     } else if ( readcount_file != null ) {
-        //If skipping subsampling for bin or raw entry, it's assumed that the fastq files are already subsampled
+        //If skipping subsampling for bin entry, it's assumed that the fastq files are already subsampled
         //that's why a file with original readcounts is needed.
         //tuplify_samp_fastqs output has the same format as subsample_reads.out.sub_reads tuple(val("${sample.baseName}"), path("sub_*.fq.gz"), emit: sub_reads)
         tuplify_samp_fastqs(samples_ch.to_sub_or_tup, fastq_ch.to_sub_or_tup.first())
@@ -50,7 +50,7 @@ workflow subsample_reads {
         readcounts = Channel.fromPath(readcount_file, type: "file", checkIfExists: true)        
     } else {
             //Should not be possible
-            throw new Exception("When skipping subsampling from raw reads entry or provided bins entry it is assumed that you already have subsampled reads.\nThe pipeline should not end up here if that didn't happen.")
+            throw new Exception("When skipping subsampling from provided bins entry it is assumed that you already have subsampled reads.\nThe pipeline should not end up here if that didn't happen.")
     }
 
     emit:
