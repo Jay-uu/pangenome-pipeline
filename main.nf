@@ -65,6 +65,10 @@ workflow {
         throw new Exception("You can either provide pre-assembled bins or previously created reference genomes, but not both. Please use either the --bins flag or the --ref_genome flag. ")
     }
 
+    if (params.only_bins && (params.bins != null || params.ref_genome != null)) {
+        throw new Exception("Stopping after binning is only allowed for Entrypoint 1: raw reads.\nEither set --only_bins false or remove --bins/--ref_genome input.")
+    }
+
     println("Starting. Your results will be published at ${params.project}.")
 
     //Subsampling
@@ -125,22 +129,23 @@ workflow {
             core_ch = pangenome_assembly.out.core_fasta
             NBPs_ch = pangenome_assembly.out.NBPs_fasta
             contigs_ch = pangenome_assembly.out.contigs_tsv
+
+            
         }
     }
-    //If we're subsampling or using already subsampled reads from entry 2 we estimate coverages to determine which samples our genomes are present in.
-    if (params.subsample == true || params.readcount != null ) {
-        match_samps_to_pang(params.samples, core_ch, sub_reads, readcounts, params.project, params.min_cov, params.nr_samps_threshold, params.nr_subsamp)
-        pang_samples = match_samps_to_pang.out.pang_samples
-    } else if (params.ref_genome != null) {
-        pang_samples = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
-    } else {
-        throw new Exception("No subsampling, no readcount file AND no reference genome? This should never happen.")
+    //If we have pangenomes or a reference genome and have subsampled reads we estimate coverages to determine which samples our genomes are present in.
+    if (!params.only_bins) {
+        if ( ( params.subsample == true ) || params.readcount != null ) {
+            match_samps_to_pang(params.samples, core_ch, sub_reads, readcounts, params.project, params.min_cov, params.nr_samps_threshold, params.nr_subsamp)
+            pang_samples = match_samps_to_pang.out.pang_samples
+        } else if (params.ref_genome != null) {
+            pang_samples = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
+        } else {
+            throw new Exception("No subsampling, no readcount file AND no reference genome? This should never happen.")
+        }
     }
 
-    if (params.run_VC == true) {
-            variant_calling(params.fastq, params.subsample, NBPs_ch, pang_samples, contigs_ch, params.ref_genome, params.contigs,
-                            params.project, params.min_locus_cov, params.min_cov, params.min_breadth, params.min_contig_len, params.block_size)
-    }
+
 
     /* Currently there is a bug with the event handler:
     https://github.com/nextflow-io/nextflow/issues/5261
