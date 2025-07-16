@@ -20,6 +20,6 @@ process fastq_to_bins {
     """
     echo "The sample file is ${sample.baseName} and the fastq dir is ${fastq_dir}"
     SAMPLE_ID="${sample.baseName}"
-    SqueezeMeta.pl -m coassembly -f ${fastq_dir} -s ${sample} -p \$SAMPLE_ID -binners ${binners} -t ${task.cpus} --onlybins --gtdbtk
+    SqueezeMeta.pl -m coassembly -f ${fastq_dir} -s ${sample} -p \$SAMPLE_ID -binners ${binners} -t ${task.cpus} --onlybins --gtdbtk --nomarkers
     """
 }
