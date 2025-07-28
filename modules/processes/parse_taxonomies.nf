@@ -94,6 +94,8 @@ process parse_taxonomies {
         if len(g.loc[(g["Completeness"] > ${MAGcomplete}) & (g["Contamination"] < ${MAGcontam})]) == 0:
             print(f"No {group} bin is good enough quality for clustering. Exlcuding from further analysis.")
         else:
+            #make sure name doesn't have a space (will happen for species)
+            group = "_".join( group.split() ) #replace any whitespace with _
             os.makedirs(group+"_bins")
             g.to_csv(f"{group}_bins/{group}.bintable", index=None,
                      sep='\t', columns = ["Bin Id","Completeness","Contamination"])
