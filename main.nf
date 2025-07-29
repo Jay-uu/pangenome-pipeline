@@ -99,7 +99,7 @@ workflow {
             contigs_ch = Channel.fromPath("${params.contigs}", type: "file", checkIfExists: true)
         }
         else {
-            contigs_ch = Channel.empty()
+            contigs_ch = null
         }
     } else {
         if (params.bins != null) {
@@ -142,6 +142,12 @@ workflow {
             pang_samples = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
         } else {
             throw new Exception("No subsampling, no readcount file AND no reference genome? This should never happen.")
+        }
+
+        if (params.run_VC) {
+            fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+            variant_calling(fastq_dir, params.subsample, NBPs_ch, pang_samples, contigs_ch, params.ref_genome,
+             params.project, params.min_locus_cov, params.min_cov, params.min_breadth, params.min_contig_len, params.block_size )
         }
     }
 

@@ -8,13 +8,12 @@ include { calc_pang_div } from './../processes/calc_pang_div.nf'
 
 workflow variant_calling {
     take:
-    fastq_path //fastq dir path
+    fastq_dir //fastq dir as channel
     subsample //boolean to subsample or not
     NBPs_fasta //channel: path(NBPs.fasta)
     pang_samples //channel: [val(ID), path(ID.samples)] or if subsample == false path(project.samples)
-    contigs_tsv //channel: path(contigs.tsv)
-    ref_genome // null or an individual reference genome fasta file
-    contigs_path // either null or a file with contig names
+    contigs_tsv //channel: path(contigs.tsv) or null? Does this work?
+    ref_genome // null or string
     proj_name //project name string
     min_locus_cov   //minimum locus coverage parameter for pogenom
     min_cov //params.min_cov
@@ -23,9 +22,6 @@ workflow variant_calling {
     block_size //params.block_size
 
     main:
-    //Going to mutliple processes
-    fastq_dir = Channel.fromPath(fastq_path, type: "dir", checkIfExists: true)
-
     NBPs_fasta
         .map { Nfasta -> [Nfasta.getSimpleName(), Nfasta] }
         .set { NBPs_fasta }
@@ -49,7 +45,7 @@ workflow variant_calling {
 
     //If using reference genome, either give empty file if no contigs were provided, or use the contigs_tsv
     if (ref_genome != null) {
-        if (contigs_path == null) {
+        if (contigs_tsv == null) { //Can a channel be compared to null?
             //Optional inputs for processes not yet available: https://github.com/nextflow-io/nextflow/issues/1694
             NO_FILE = file("no_file.text")
             contigs_tsv = Channel.fromPath(NO_FILE, type: "file")
@@ -57,6 +53,7 @@ workflow variant_calling {
         downsample_bams_merge(pang_sqm.combine(contigs_tsv), proj_name, min_cov, min_breadth, min_contig_len)
     }
     else {
+        //If no reference genome, the contigs_tsvs get matched to the right pangenomes based on filenames.
         contigs_tsv
             .map { contsv -> [contsv.getSimpleName(), contsv] }
             .set { contigs_to_downsample }
