@@ -1,11 +1,10 @@
 /*
-Clusters bins based on similarity.
+Clusters bins based on similarity using https://github.com/moritzbuck/mOTUlizer
 Input is a directory containing bins and a file with bin-name, completeness and contamination.
 Output is the name of the taxonomic classification of the bins (unless taxSort = root),
 a tsv with which bins belong to which mOTU, and the bintable file with quality data for the bins.
 */
 process bins_to_mOTUs {
-    //This process sometimes fails on UPPMAX due to lack of memory. Might implement something like this: https://www.nextflow.io/docs/latest/process.html#dynamic-computing-resources
     publishDir "${project_path}/mOTUs/mOTUlizer", mode: "copy", pattern: "*_similarities.txt", saveAs: { filename -> "${tax_dir}" - "_bins" + "/" + filename }
     publishDir "${project_path}/mOTUs/mOTUlizer", mode: "copy", pattern: "*_mOTUs.tsv", saveAs: { filename -> "${tax_dir}" - "_bins" + "/" + filename }
     label "low_cpu"
