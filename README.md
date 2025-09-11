@@ -160,18 +160,18 @@ After running the pipeline you might wonder where your results are and what they
 │  ├─ mOTUlizer/<br>
 │  │  ├─ [taxonomic_group_Y]/<br>
 │  │  │  ├─ [tax_group_Y]_mOTUs.tsv<br>
-│  │  │  ├─ [tax_group_Y]_similarities.txt<br>
+│  │  c  ├─ [tax_group_Y]_similarities.txt<br>
 │  ├─ results/<br>
 │  │  ├─ [taxonomic_group_Y]_mOTU_[N]/<br>
 │  │  │  ├─ pang_bins.txt<br>
 │  │  │  ├─ pangenome/<br>
 │  │  │  │  ├─ pogenom/<br>
-|  |  |  |  | ├─ results/<br>
-|  |  |  |  | | ├─ lots of files, will update later. FST, allele frequencies, pNpS etc. <br>
-|  |  |  |  | ├─ [taxonomic_group_Y]_mOTU_[N]_unfiltered.vcf<br>
+|  |  |  |  |  ├─ results/<br>
+|  |  |  |  |  |  ├─ lots of files, will update later. FST, allele frequencies, pNpS etc. <br>
+|  |  |  |  |  |─ [taxonomic_group_Y]_mOTU_[N]_unfiltered.vcf<br>
 │  │  │  │  ├─ superpang/<br>
-|  |  |  |  | ├─ params.tsv<br>
-|  |  |  |  | ├─ Superpang output. Lots of files. Update later. Find core and accessory fasta files here.<br>
+|  |  |  |  |  ├─ params.tsv<br>
+|  |  |  |  |  ├─ Superpang output. Lots of files. Update later. Find core and accessory fasta files here.<br>
 │  │  │  │  ├─ cov_breadth.txt<br>
 │  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N]_cM2_summary.txt<br>
 │  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N].samples<br>
