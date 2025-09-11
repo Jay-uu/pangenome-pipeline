@@ -147,8 +147,9 @@ The more general labels you can use to configure the pipeline are low_cpu (these
 If you want to know more about how Nextflow uses configurations you can [read the docs](https://www.nextflow.io/docs/latest/config.html).
 
 # Results structure
-After running the pipeline you might wonder where your results are and what they mean. My best recommendation is to explore, but here's a tree showing the structure of the results output from a full run of the pipeline. Words within brackets [] are variable, depending on your input, sample names, taxonomic identification, tool etc. The .zip file in <Project/results/[taxonomic_group_Y]_mOTU_[N]/pangenome/[taxonomic_group_Y]_mOTU_[N].zip> can be explored using [SQMtools in R](https://github.com/jtamames/SqueezeMeta/wiki/Using-R-to-analyze-your-SQM-results).
+After running the pipeline you might wonder where your results are and what they mean. My best recommendation is to explore, but here's a tree showing the structure of the results output from a full run of the pipeline. Words within brackets [] are variable, depending on your input, sample names, taxonomic identification, tool etc. The .zip file in `<Project/results/[taxonomic_group_Y]_mOTU_[N]/pangenome/[taxonomic_group_Y]_mOTU_[N].zip>` can be explored using [SQMtools in R](https://github.com/jtamames/SqueezeMeta/wiki/Using-R-to-analyze-your-SQM-results).
 
+```
 [Project]/<br>
 ├─ bins/<br>
 │  ├─ bintables/<br>
@@ -160,8 +161,8 @@ After running the pipeline you might wonder where your results are and what they
 │  ├─ mOTUlizer/<br>
 │  │  ├─ [taxonomic_group_Y]/<br>
 │  │  │  ├─ [tax_group_Y]_mOTUs.tsv<br>
-│  │  c  ├─ [tax_group_Y]_similarities.txt<br>
-│  ├─ results/<br>
+│  │    ├─ [tax_group_Y]_similarities.txt<br>
+│  ├─ results/<br> #spaces are weird on the website. Fix!!!!
 │  │  ├─ [taxonomic_group_Y]_mOTU_[N]/<br>
 │  │  │  ├─ pang_bins.txt<br>
 │  │  │  ├─ pangenome/<br>
@@ -187,4 +188,5 @@ After running the pipeline you might wonder where your results are and what they
 │  ├─ [Project].subsampled.samples<br>
 │  ├─ original_readcounts.tsv<br>
 ├─ README.md<br>
+```
 
