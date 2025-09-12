@@ -82,7 +82,7 @@ If you've previously run the pipeline and stopped after the binning step you can
 Instead of writing all your parameters on the command line you can write a parameter file and provide it using ```-params-file <parameter_file.yaml>```.
 The file needs to be either in YAML or JSON format.
 YAML example:<br>
-
+```yaml
     project: 'My_project_date'
     samples: 'path/to/my_project.samples'
     fastq: 'path/to/fastqs'
@@ -91,9 +91,10 @@ YAML example:<br>
     nr_samps_threshold: 2
     min_cov: 10
     min_breadth: 50
+```
 
 JSON example:<br>
-```
+```json
 {
 "project": "My_project_date",
 "samples": "path/to/my_project.samples",
@@ -149,44 +150,44 @@ If you want to know more about how Nextflow uses configurations you can [read th
 # Results structure
 After running the pipeline you might wonder where your results are and what they mean. My best recommendation is to explore, but here's a tree showing the structure of the results output from a full run of the pipeline. Words within brackets [] are variable, depending on your input, sample names, taxonomic identification, tool etc. The .zip file in `<Project/results/[taxonomic_group_Y]_mOTU_[N]/pangenome/[taxonomic_group_Y]_mOTU_[N].zip>` can be explored using [SQMtools in R](https://github.com/jtamames/SqueezeMeta/wiki/Using-R-to-analyze-your-SQM-results).
 
-```
-[Project]/<br>
-├─ bins/<br>
-│  ├─ bintables/<br>
-│  │  ├─ [SampX].bintable<br>
-│  ├─ fastas/<br>
-│  │  ├─ [SampX].[binner].[binNr].[tool_suffix].contigs.fa<br>
-│  ├─ summarized_bintable.tsv<br>
-├─ mOTUs/<br>
-│  ├─ mOTUlizer/<br>
-│  │  ├─ [taxonomic_group_Y]/<br>
-│  │  │  ├─ [tax_group_Y]_mOTUs.tsv<br>
-│  │    ├─ [tax_group_Y]_similarities.txt<br>
-│  ├─ results/<br> #spaces are weird on the website. Fix!!!!
-│  │  ├─ [taxonomic_group_Y]_mOTU_[N]/<br>
-│  │  │  ├─ pang_bins.txt<br>
-│  │  │  ├─ pangenome/<br>
-│  │  │  │  ├─ pogenom/<br>
-|  |  |  |  |  ├─ results/<br>
-|  |  |  |  |  |  ├─ lots of files, will update later. FST, allele frequencies, pNpS etc. <br>
-|  |  |  |  |  |─ [taxonomic_group_Y]_mOTU_[N]_unfiltered.vcf<br>
-│  │  │  │  ├─ superpang/<br>
-|  |  |  |  |  ├─ params.tsv<br>
-|  |  |  |  |  ├─ Superpang output. Lots of files. Update later. Find core and accessory fasta files here.<br>
-│  │  │  │  ├─ cov_breadth.txt<br>
-│  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N]_cM2_summary.txt<br>
-│  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N].samples<br>
-│  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N].cov<br>
-│  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N].zip/<br>
-│  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N].cpm<br>
-│  ├─ [Project].cov.tsv<br>
-│  ├─ [Project].cpm.tsv<br>
-├─ subsamples/<br>
-│  ├─ fastqs/<br>
-│  │  ├─ sub_[SampX]_R1.fq.gz<br>
-│  │  ├─ sub_[SampX]_R2.fq.gz<br>
-│  ├─ [Project].subsampled.samples<br>
-│  ├─ original_readcounts.tsv<br>
-├─ README.md<br>
+```bash
+[Project]/
+├─ bins/
+│  ├─ bintables/
+│  │  ├─ [SampX].bintable
+│  ├─ fastas/
+│  │  ├─ [SampX].[binner].[binNr].[tool_suffix].contigs.fa
+│  ├─ summarized_bintable.tsv
+├─ mOTUs/
+│  ├─ mOTUlizer/
+│  │  ├─ [taxonomic_group_Y]/
+│  │  │  ├─ [tax_group_Y]_mOTUs.tsv
+│  │    ├─ [tax_group_Y]_similarities.txt
+│  ├─ results/
+│  │  ├─ [taxonomic_group_Y]_mOTU_[N]/
+│  │  │  ├─ pang_bins.txt
+│  │  │  ├─ pangenome/
+│  │  │  │  ├─ pogenom/
+|  |  |  |  |  ├─ results/
+|  |  |  |  |  |  ├─ lots of files, such as FST, allele frequencies, pNpS etc.
+|  |  |  |  |  |─ [taxonomic_group_Y]_mOTU_[N]_unfiltered.vcf
+│  │  │  │  ├─ superpang/
+|  |  |  |  |  ├─ params.tsv
+|  |  |  |  |  ├─ Superpang output. Lots of files. Find core and accessory fasta files here.
+│  │  │  │  ├─ cov_breadth.txt
+│  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N]_cM2_summary.txt
+│  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N].samples
+│  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N].cov
+│  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N].zip
+│  │  │  │  ├─ [taxonomic_group_Y]_mOTU_[N].cpm
+│  ├─ [Project].cov.tsv
+│  ├─ [Project].cpm.tsv
+├─ subsamples/
+│  ├─ fastqs/
+│  │  ├─ sub_[SampX]_R1.fq.gz
+│  │  ├─ sub_[SampX]_R2.fq.gz
+│  ├─ [Project].subsampled.samples
+│  ├─ original_readcounts.tsv
+├─ README.md
 ```
 
