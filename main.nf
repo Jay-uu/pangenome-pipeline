@@ -114,7 +114,7 @@ workflow {
             /*
     	    Runs assembly and binning.
     	    */
-            raw_to_bins(params.fastq, individual_samp_files, params.project, params.binners)
+            raw_to_bins(params.fastq, individual_samp_files, params.project, params.binners, params.contig_len)
             bins_ch = raw_to_bins.out.bins
             bintable_ch = raw_to_bins.out.bintable
         } 

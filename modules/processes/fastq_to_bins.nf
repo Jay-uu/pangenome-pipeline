@@ -13,6 +13,7 @@ process fastq_to_bins {
     path(fastq_dir)
     val(project_path)
     val(binners)
+    val(contig_len)
     output:
     path("${sample.baseName}/results/bins/*.fa", emit: bins)
     path("${sample.baseName}/results/18.*.bintable", emit: bintable)
@@ -20,6 +21,6 @@ process fastq_to_bins {
     """
     echo "The sample file is ${sample.baseName} and the fastq dir is ${fastq_dir}"
     SAMPLE_ID="${sample.baseName}"
-    SqueezeMeta.pl -m coassembly -f ${fastq_dir} -s ${sample} -p \$SAMPLE_ID -binners ${binners} -t ${task.cpus} --onlybins --gtdbtk --nomarkers
+    SqueezeMeta.pl -m coassembly -f ${fastq_dir} -s ${sample} -p \$SAMPLE_ID -binners ${binners} -t ${task.cpus} -contiglen ${contig_len} --onlybins --gtdbtk --nomarkers
     """
 }

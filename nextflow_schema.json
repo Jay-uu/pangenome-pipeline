@@ -168,6 +168,11 @@
           "default": "maxbin,metabat2,concoct",
           "description": "Choose which binners to use when assembling",
           "help_text": "Options are maxbin, metabat2 and concoct. By default the pipeline combines the results of all three. To use just one write --binners <tool>"
+        },
+        "contig_len": {
+          "type": "integer",
+          "default": 2500,
+          "description": "Minimum length of contigs to be used for assembly"
         }
       }
     },

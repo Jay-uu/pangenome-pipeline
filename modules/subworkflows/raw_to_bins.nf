@@ -8,6 +8,7 @@ workflow raw_to_bins {
     individual_samp_files //channel of individual samples files
     proj_name //project name param
     binners //params.binners
+    contig_len //params.contig_len
     main:
     //The dir with all the fastqs
     Channel.fromPath(fq_path, type: "dir", checkIfExists: true).multiMap { ch -> to_format: to_assembly: to_subsamp: ch }.set { fastq_ch }
@@ -20,7 +21,7 @@ workflow raw_to_bins {
     */
 
     //Binning
-    fastq_to_bins(individual_samp_files, fastq_ch.to_assembly.first(), proj_name, binners)
+    fastq_to_bins(individual_samp_files, fastq_ch.to_assembly.first(), proj_name, binners, contig_len)
 
     //Summarizing bintables into one file and only printing certain columns
     fastq_to_bins.out.bintable.multiMap { ch -> to_emit: to_summarize: ch }.set { ch_bintables }
