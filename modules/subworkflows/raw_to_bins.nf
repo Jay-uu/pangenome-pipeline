@@ -1,5 +1,10 @@
 #!/usr/bin/env nextflow
-include { fastq_to_bins } from './../processes/fastq_to_bins'
+//include { fastq_to_bins } from './../processes/fastq_to_bins'
+include { assemble_metagenome } from './../processes/assemble_metagenome'
+include { map_samples } from './../processes/map_samples'
+include { binning } from './../processes/binning'
+include { dastool } from './../processes/dastool'
+include { checkbins } from './../processes/checkbins'
 include { summarize_bintables } from './../helper_functions/summarize_bintables'
 
 workflow raw_to_bins {
@@ -12,22 +17,23 @@ workflow raw_to_bins {
     main:
     //The dir with all the fastqs
     Channel.fromPath(fq_path, type: "dir", checkIfExists: true).multiMap { ch -> to_format: to_assembly: to_subsamp: ch }.set { fastq_ch }
-    //File with which fastq files belong to which samples. Tab delimited with sample-name, fastq file name and pair.
-    //sam_ch = Channel.fromPath(samp_file, type: "file", checkIfExists: true)
 
-    /*Runs the process that creates individual samples files
-    format_samples(sam_ch, fastq_ch.to_format)
-    format_samples.out.flatten().multiMap { ch -> to_subsamp: to_assembly: ch }.set { samples_files }
-    */
-
-    //Binning
-    fastq_to_bins(individual_samp_files, fastq_ch.to_assembly.first(), proj_name, binners, contig_len)
+    //Assembly and Binning
+    //fastq_to_bins(individual_samp_files, fastq_ch.to_assembly.first(), proj_name, binners, contig_len)
+    assemble_metagenome(individual_samp_files, fastq_ch.to_assembly.first(), binners, contig_len)
+    map_samples(assemble_metagenome.out.sqm_dir)
+    binning(map_samples.out.sqm_dir)
+    dastool(binning.out.sqm_dir)
+    checkbins(dastool.out.sqm_dir)
+    checkbins.out.bintable.multiMap { ch -> to_emit: to_summarize: ch }.set { ch_bintables }
 
     //Summarizing bintables into one file and only printing certain columns
-    fastq_to_bins.out.bintable.multiMap { ch -> to_emit: to_summarize: ch }.set { ch_bintables }
+    //fastq_to_bins.out.bintable.multiMap { ch -> to_emit: to_summarize: ch }.set { ch_bintables }
+    //summarize_bintables(ch_bintables.to_summarize, proj_name)
     summarize_bintables(ch_bintables.to_summarize, proj_name)
 
     emit:
-    bins = fastq_to_bins.out.bins //channel: path(ID/results/bins/*.fa)
+    //bins = fastq_to_bins.out.bins //channel: path(ID/results/bins/*.fa)
+    bins = checkbins.out.bins
     bintable = ch_bintables.to_emit //channel: path(ID/results/18.ID.bintable)
 }

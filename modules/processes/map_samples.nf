@@ -1,4 +1,4 @@
-process mapsamples {
+process map_samples {
         label "map_to_asm"
         tag "${samp_name}"
         input:
