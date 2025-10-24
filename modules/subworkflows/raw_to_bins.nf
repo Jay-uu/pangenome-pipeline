@@ -24,7 +24,7 @@ workflow raw_to_bins {
     map_samples(assemble_metagenome.out.sqm_dir)
     binning(map_samples.out.sqm_dir)
     dastool(binning.out.sqm_dir)
-    checkbins(dastool.out.sqm_dir)
+    checkbins(dastool.out.sqm_dir, proj_name)
     checkbins.out.bintable.multiMap { ch -> to_emit: to_summarize: ch }.set { ch_bintables }
 
     //Summarizing bintables into one file and only printing certain columns

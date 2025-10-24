@@ -7,7 +7,8 @@ process binning {
         tuple(val("${samp_name}"),path("${sqm_dir}"), emit: sqm_dir)
         script:
         """
-        sed -i 's/\($numthreads *= *\).*;/\1$task.cpus;/' ${sqm_dir}/SqueezeMeta_conf.pl
+        echo "Binning with {$task.cpus} nr of cpus"
+        sed -i 's#\\(\$numthreads *= *\\).*;#\\1'"$task.cpus;"'#' $sqm_dir/SqueezeMeta_conf.pl
         14.runbinning.pl $sqm_dir
         """
 }

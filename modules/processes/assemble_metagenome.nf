@@ -14,7 +14,7 @@ process assemble_metagenome {
     tuple(val("${sample.baseName}"),path("${sample.baseName}"), emit: sqm_dir)
     script:
     """
-    echo "The sample file is ${sample.baseName} and the fastq dir is ${fastq_dir}"
+    echo "The sample file is ${sample.baseName}, fastq dir is ${fastq_dir} and nr of cpus is ${task.cpus}."
     #-test 1 means stopping after assembly.
     SqueezeMeta.pl -m coassembly -f ${fastq_dir} -samples ${sample} -p ${sample.baseName} -binners ${binners} -t ${task.cpus} -contiglen ${contig_len} --onlybins --gtdbtk --nomarkers -test 1
     """
