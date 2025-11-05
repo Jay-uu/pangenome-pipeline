@@ -59,7 +59,8 @@
         "block_size": {
           "type": "integer",
           "default": 2,
-          "description": "Controls the RAM-usage for DIAMOND when read mapping."
+          "description": "Controls the RAM-usage for DIAMOND when read mapping.",
+          "help_text": "The pipeline runs DIAMOND via SqueezeMeta for functional identification of genes in the ref-/pangenome. This can require a lot of memory and temporary disk space. To limit this you can set the block size to what best fits your system. See the [DIAMOND](https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options#memory--performance-options) and (SqueezeMeta)[https://github.com/jtamames/SqueezeMeta?tab=readme-ov-file#working-in-a-low-memory-environment) documentations for details."
         },
         "nr_subsamp": {
           "type": "integer",
@@ -70,7 +71,8 @@
         "min_contig_len": {
           "type": "integer",
           "default": 1000,
-          "description": "Minimum length of contigs used for variant calling."
+          "description": "Minimum length of contigs used for variant calling.",
+          "help_text": "By default, the minimum length of contigs used for variant calling are at least a 1000 bases. This parameter sets the minimum length to whatever you want."
         }
       }
     },
@@ -104,7 +106,8 @@
           "help_text": "Assign how many threads the pipeline can use at a time"
         }
       },
-      "required": ["project", "samples", "fastq"]
+      "required": ["project", "samples", "fastq"],
+      "help_text": "Input always required for running the pipeline."
     },
     "motu_creation": {
       "title": "mOTU creation",
@@ -172,7 +175,8 @@
         "contig_len": {
           "type": "integer",
           "default": 2500,
-          "description": "Minimum length of contigs to be used for assembly"
+          "description": "Minimum length of contigs to be used for assembly",
+          "help_text": "By default only contigs that are at least 2500 bases long are used for variant calling. This parameter lets you set the minimum length to a chosen number."
         }
       }
     },
