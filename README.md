@@ -51,7 +51,7 @@ You might not always want to run the whole pipeline depending on your purposes. 
 
  - Existing bins entrypoint:
    If you already have bins that you want to assemble into pangenomes you need to provide a directory with the fasta files for those bins.
-   <For this entry you are assumed to have already subsampled your reads, and therefore need to provide a readcount file.> (DOUBLE CHECK)
+   This can be done with or without subsampling. If you provide already subsampled reads you also need to provide a file with the number of reads in your original fastq files using the ```--readcount``` flag. If you don't provide this the pipeline will assume that you provided the full fastq files and run subsampling.
 
    ```nextflow run <path/to/pipeline/main.nf> --project <path/project_name> --samples <tsv.samples> --fastq <path/to/dir> --bins <path/to/dir/with/bins/fastas> --readcount <path/to/readcount.txt>```
 
