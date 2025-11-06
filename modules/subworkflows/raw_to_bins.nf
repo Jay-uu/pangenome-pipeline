@@ -16,7 +16,7 @@ workflow raw_to_bins {
     contig_len //params.contig_len
     main:
     //The dir with all the fastqs
-    Channel.fromPath(fq_path, type: "dir", checkIfExists: true).multiMap { ch -> to_format: to_assembly: to_subsamp: ch }.set { fastq_ch }
+    channel.fromPath(fq_path, type: "dir", checkIfExists: true).multiMap { ch -> to_format: to_assembly: to_subsamp: ch }.set { fastq_ch }
 
     //Assembly and Binning
     //fastq_to_bins(individual_samp_files, fastq_ch.to_assembly.first(), proj_name, binners, contig_len)
