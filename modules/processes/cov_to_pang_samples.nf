@@ -81,7 +81,6 @@ process cov_to_pang_samples {
         header = ["Name", "Position", "Depth"] #samtools depth format
         cov = pd.read_csv(file, sep="\t", names=header)
         tot_reads = readcount[readcount["Sample"]==samp_name]["Total_reads"].item()
-        #recruited_reads = cov["numreads"].sum()
         if NR_SUBSAMP > tot_reads:
             print(f"Requested subsampling more than available reads for {samp_name}. Total reads: {tot_reads} used for subsampling and cov estimation instead.")
             nr_subsamp = tot_reads
