@@ -5,7 +5,7 @@ collected output from map_subset coverage, single_samps and subsample_fastqs rea
 There might not be any samples with enough coverage, which will print a message, but still result in a succesful process run.
 Input: 
        NB: All inputs are channels with files/values.
-       coverage: A file with samtools coverage output, which has the depth of how reads from a sample mapped to a pangenome/reference genome.
+       coverage: A file with samtools depth output, which has the depth of how reads from a sample mapped to a pangenome/reference genome.
        singles: The previously generated .samples files with which reads belong to which sample.
        readcounts: A file named {sample}_readcount.txt which contains the total number of reads per sample.
        in those fastqs.
@@ -81,6 +81,7 @@ process cov_to_pang_samples {
         header = ["Name", "Position", "Depth"] #samtools depth format
         cov = pd.read_csv(file, sep="\t", names=header)
         tot_reads = readcount[readcount["Sample"]==samp_name]["Total_reads"].item()
+        #recruited_reads = cov["numreads"].sum()
         if NR_SUBSAMP > tot_reads:
             print(f"Requested subsampling more than available reads for {samp_name}. Total reads: {tot_reads} used for subsampling and cov estimation instead.")
             nr_subsamp = tot_reads
