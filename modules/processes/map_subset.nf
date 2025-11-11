@@ -13,6 +13,7 @@ process map_subset {
     tuple(path(pangenome_dir),path(index), val(pang_id), val(sample_ID), path(sub_reads))
     output:
     path("*_coverage.tsv", emit: coverage)
+    path("*_stats.txt", emit: stats)
     script:
     """
     #run bowtie2
@@ -26,14 +27,21 @@ process map_subset {
         bowtie2 -x index -U sub_*_R1.fq.gz --threads ${task.cpus} | samtools view -bS --threads ${task.cpus} > tmp_alignment.bam
     fi
     
-    echo "Sorting bam files"
+    echo "Sorting BAM files"
     samtools sort tmp_alignment.bam -O BAM -o ${pang_id}_\${reads_id}_alignment.bam --threads ${task.cpus}
     
+    echo "Calculating BAM file stats"
+    samtools stats ${pang_id}_\${reads_id}_alignment.bam > stats.txt
+    grep -e "raw total sequences" -e "reads mapped" stats.txt > ${pang_id}_\${reads_id}_stats.txt
+
+
     echo "Computing coverage"
     #want all positions, not double count overlapping sections of paired reads, allow reads with deletions
     samtools depth -aa -J -s -q 1 ${pang_id}_\${reads_id}_alignment.bam -o ${pang_id}_\${reads_id}_coverage.tsv
     
-    echo "Removing .bam files" #to save space
+    #Get how many of the reads were recruited. Samtools function?
+
+    echo "Removing BAM files" #to save space
     rm *.bam #the sorted bams are named despite being deleted in case we decide a downstream process needs them.
     
     """

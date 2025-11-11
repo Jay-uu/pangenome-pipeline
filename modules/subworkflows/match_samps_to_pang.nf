@@ -28,9 +28,9 @@ workflow match_samps_to_pang {
     /*
     Using the coverage from the mapping, decides which reads "belong" to which pangenome and creates new .samples files
     */
-    sample_file = Channel.fromPath(sample_path, type: "file", checkIfExists: true)
+    sample_file = channel.fromPath(sample_path, type: "file", checkIfExists: true)
 
-    cov_to_pang_samples(map_subset.out.coverage.collect(), sample_file.first(), readcounts.collect(), proj_name, minimum_coverage, nr_samps_threshold, nr_subsamp)
+    cov_to_pang_samples(map_subset.out.coverage.collect(), map_subset.out.stats.collect(), sample_file.first(), readcounts.collect(), proj_name, minimum_coverage, nr_samps_threshold, nr_subsamp)
     cov_to_pang_samples.out.not_passed_message.map { msg -> msg.text.strip() }.view()
     //This file only gets created if not enough samples, meaning the text only gets printed if pipeline stops here.
 

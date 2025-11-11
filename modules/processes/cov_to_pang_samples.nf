@@ -6,6 +6,7 @@ There might not be any samples with enough coverage, which will print a message,
 Input: 
        NB: All inputs are channels with files/values.
        coverage: A file with samtools depth output, which has the depth of how reads from a sample mapped to a pangenome/reference genome.
+       stats:
        singles: The previously generated .samples files with which reads belong to which sample.
        readcounts: A file named {sample}_readcount.txt which contains the total number of reads per sample.
        in those fastqs.
@@ -24,6 +25,7 @@ process cov_to_pang_samples {
     publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "samples/*.samples",failOnError: false, saveAs: {samps -> "${file(samps).getSimpleName()}/pangenome/${file(samps).getSimpleName()}.samples"}
     input:
     path(coverage)
+    path(stats)
     path(samples_file)
     path(readcounts)
     val(project_path)
@@ -42,6 +44,7 @@ process cov_to_pang_samples {
     import os
     import pandas as pd
     import glob
+    from string import digits
     
     SAMPS_FILE = "${samples_file}"
     COV_THRESHOLD = ${min_cov}
@@ -65,12 +68,14 @@ process cov_to_pang_samples {
         exp_cov = CovPM*tot_reads/1000000
         return CovPM, exp_cov
     
+    #Make a dataframe of the nr of reads in the original fastq files
     count_files = glob.glob("*_readcounts.tsv")
     readcount = pd.DataFrame()
     for file in count_files:
         print(f"Appending {file}")
         readcount = pd.concat((readcount, pd.read_csv(file, sep='\t')), ignore_index=True)
 
+    #Taking the output of samtools coverage, calculating the coverage/million reads and expected mean coverage based on nr original reads.
     cpm_dic = {}
     cov_dic = {}
     cov_files = glob.glob("*_coverage.tsv")
@@ -91,7 +96,7 @@ process cov_to_pang_samples {
         cpm_dic.setdefault(pang_id, {})[samp_name] = cpm
         cov_dic.setdefault(pang_id, {})[samp_name] = exp_cov
 
-    #convert dicts to dfs and save to file
+    #convert dicts to dfs and save to file. Maybe redo this to be in a loop?
     print("Saving coverage and CPM to files.")
     all_cov = pd.DataFrame.from_dict(cov_dic, orient="index")
     all_cov = all_cov.reset_index().rename(columns={"index": "Pangenome"})
@@ -122,6 +127,28 @@ process cov_to_pang_samples {
             print(f"Creating new samples file for {pang_id}")
             new_samp_df = samples_df.query('sample in @ovr_thresh')
             new_samp_df.to_csv(f"samples/{pang_id}.samples", header=False, index=None, sep='\t')
+
+    #Additional calculations from mapping. Get % of subsampled reads that mapped.
+    #go through all _stats.txt files, collect total reads and mapped reads for
+    #each pangenome + sample combo
+    # and calc %mapped
+    mapped_reads = glob.glob("*_stats.txt")
+    read_prcnt_dic = {}
+    for file in mapped_reads:
+    print(f"Reading {file}")
+    pang_id = file.split("_sub_",1)[0]
+    samp_name = file.split("sub_",1)[1].split("_stats.txt")[0]
+    with open(file) as statfile:
+        bamstats = statfile.readlines()
+        tot_seq = ''.join(c for c in bamstats[0] if c in digits) #row one has total reads
+        reads_mapped = ''.join(c for c in bamstats[1] if c in digits) #row 2 has nr reads mapped
+        prcnt_mapped = (int(reads_mapped)/int(tot_seq))*100
+    read_prcnt_dic.setdefault(pang_id, {})[samp_name] = prcnt_mapped
+
+    #Save results in one file.
+    all_read_prcnt = pd.DataFrame.from_dict(read_prcnt_dic, orient="index")
+    all_read_prcnt = all_read_prcnt.reset_index().rename(columns={"index": "Pangenome"})
+    all_read_prcnt.to_csv(f"{PROJECT}.prcnt_reads_mapped.tsv", sep = '\t', index=False)
 
     #This allows the process to finish and publish results, but still printing why the pipeline stops if no pangenomes pass the thresholds
     if len(glob.glob(f"samples/*.samples")) < 1:
