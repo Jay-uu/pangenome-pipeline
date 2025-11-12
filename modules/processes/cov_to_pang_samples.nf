@@ -135,15 +135,15 @@ process cov_to_pang_samples {
     mapped_reads = glob.glob("*_stats.txt")
     read_prcnt_dic = {}
     for file in mapped_reads:
-    print(f"Reading {file}")
-    pang_id = file.split("_sub_",1)[0]
-    samp_name = file.split("sub_",1)[1].split("_stats.txt")[0]
-    with open(file) as statfile:
-        bamstats = statfile.readlines()
-        tot_seq = ''.join(c for c in bamstats[0] if c in digits) #row one has total reads
-        reads_mapped = ''.join(c for c in bamstats[1] if c in digits) #row 2 has nr reads mapped
-        prcnt_mapped = (int(reads_mapped)/int(tot_seq))*100
-    read_prcnt_dic.setdefault(pang_id, {})[samp_name] = prcnt_mapped
+        print(f"Reading {file}")
+        pang_id = file.split("_sub_",1)[0]
+        samp_name = file.split("sub_",1)[1].split("_stats.txt")[0]
+        with open(file) as statfile:
+            bamstats = statfile.readlines()
+            tot_seq = ''.join(c for c in bamstats[0] if c in digits) #row one has total reads
+            reads_mapped = ''.join(c for c in bamstats[1] if c in digits) #row 2 has nr reads mapped
+            prcnt_mapped = (int(reads_mapped)/int(tot_seq))*100
+        read_prcnt_dic.setdefault(pang_id, {})[samp_name] = prcnt_mapped
 
     #Save results in one file.
     all_read_prcnt = pd.DataFrame.from_dict(read_prcnt_dic, orient="index")
