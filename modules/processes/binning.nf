@@ -8,7 +8,7 @@ process binning {
         script:
         """
         echo "Binning with {$task.cpus} nr of cpus"
-        sed -i 's#\\(\$numthreads *= *\\).*;#\\1'"$task.cpus;"'#' $sqm_dir/SqueezeMeta_conf.pl
-        14.runbinning.pl $sqm_dir
+        #sed -i 's#\\(\$numthreads *= *\\).*;#\\1'"$task.cpus;"'#' $sqm_dir/SqueezeMeta_conf.pl
+        14.runbinning.pl $sqm_dir $task.cpus 
         """
 }
