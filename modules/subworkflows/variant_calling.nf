@@ -74,4 +74,5 @@ workflow variant_calling {
     */
     calc_pang_div(vcf_gff_ch, proj_name, min_locus_cov)
     calc_pang_div.out.success_message.map { msg -> msg.text.strip() }.view()
+    calc_pang_div.out.pog_path.collectFile(name: "completed_pogs.txt", newLine: true, sort: false, storeDir: proj_name)
 }
