@@ -97,9 +97,11 @@ process parse_taxonomies {
             #make sure name doesn't have a space (will happen for species)
             group = "_".join( group.split() ) #replace any whitespace with _
             os.makedirs(group+"_bins")
+            print(f"Writing bintable for {group}")
             g.to_csv(f"{group}_bins/{group}.bintable", index=None,
                      sep='\t', columns = ["Bin Id","Completeness","Contamination"])
             for bin_id in g['Bin Id']:
+                print(f"Symlinking {bin_id} fasta to bins dir for {group}.")
                 shutil.copy2(bin_id+".fa", group+"_bins")
     """
     
