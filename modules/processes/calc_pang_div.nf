@@ -21,6 +21,7 @@ process calc_pang_div {
     output:
     path("results", type: "dir", optional: true, emit: pog_dir)
     path("SUCCESS.txt", type: "file", emit: success_message)
+    path("pog_path.txt", type:  "file", emit: pog_path)
     script:
     """ 
     #!/usr/bin/env bash
@@ -28,7 +29,8 @@ process calc_pang_div {
     run-pogenom.py ${vcf} -f ${genome} --gff ${gff} --minCount ${min_locus_cov} -t ${task.cpus} -p ${pang_ID} -o results
     #removing tmp dir
     rm -r results/temp
-    
+    touch pog_path.txt
+
     if [ -z "\$( ls -A 'results' )" ]; then
         echo "Empty"
         echo "POGENOM could not generate results for ${pang_ID}." > SUCCESS.txt
@@ -36,6 +38,7 @@ process calc_pang_div {
     else
         echo "Not Empty"
         echo "POGENOM results available for ${pang_ID}." > SUCCESS.txt
+        echo "mOTUs/results/${pang_ID}/pangenome/pogenom/results" > pog_path.txt
     fi
     """
 }
