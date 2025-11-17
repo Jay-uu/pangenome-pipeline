@@ -12,7 +12,7 @@ process checkbins {
         path("${sqm_dir}/results/18.*.bintable", emit: bintable)
         script:
         """
-        echo "Running checkbins and getbins with {$task.cpus} nr of cpus"
+        #echo "Running checkbins and getbins with {$task.cpus} nr of cpus"
         #sed -i 's#\\(\$numthreads *= *\\).*;#\\1'"$task.cpus;"'#' $sqm_dir/SqueezeMeta_conf.pl
         17.checkbins.pl $sqm_dir $task.cpus
         18.getbins.pl $sqm_dir
