@@ -23,7 +23,7 @@ workflow raw_to_bins {
     assemble_metagenome(individual_samp_files, fastq_ch.to_assembly.first(), binners, contig_len)
     map_samples(assemble_metagenome.out.sqm_dir)
     binning(map_samples.out.sqm_dir)
-    dastool(binning.out.sqm_dir)
+    dastool(binning.out.sqm_dir, proj_name)
     checkbins(dastool.out.sqm_dir, proj_name)
     checkbins.out.bintable.multiMap { ch -> to_emit: to_summarize: ch }.set { ch_bintables }
 
@@ -34,6 +34,6 @@ workflow raw_to_bins {
 
     emit:
     //bins = fastq_to_bins.out.bins //channel: path(ID/results/bins/*.fa)
-    bins = checkbins.out.bins
+    bins = dastool.out.bins
     bintable = ch_bintables.to_emit //channel: path(ID/results/18.ID.bintable)
 }

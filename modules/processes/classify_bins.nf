@@ -14,7 +14,8 @@ process classify_bins {
     val(project_path)
     output:
     path("${sample.baseName}/results/bins/*.fa", emit: bins)
-    path("${sample.baseName}/results/18.*.bintable", emit: bintable)
+    tuple(val("${sample.baseName}"),path("${sample.baseName}"), emit: sqm_dir)
+    //path("${sample.baseName}/results/18.*.bintable", emit: bintable)
     script:
     """
     #!/usr/bin/env bash
@@ -22,8 +23,8 @@ process classify_bins {
     SAMPLE_ID="${sample.baseName}"
     SqueezeMeta.pl -m extbins -f ${fastq_dir} -s ${sample} -p \$SAMPLE_ID -r ${in_bins} --gtdbtk -test 1 -t ${task.cpus}
     #17.checkM_batch.pl \$SAMPLE_ID/
-    #update so 17 18 are done with the checkboins.nf process instead
-    17.checkbins.pl \$SAMPLE_ID/
-    18.getbins.pl \$SAMPLE_ID/
+    #update so 17 18 are done with the checkbins.nf process instead
+    #17.checkbins.pl \$SAMPLE_ID/ $task.cpus
+    #18.getbins.pl \$SAMPLE_ID/
     """
 }
