@@ -6,8 +6,12 @@ echo "=====Creating squeezemeta environment====="
 echo "=====Configuring database====="
 #configure_nodb.pl /home/fer/Data/ssd/SQM/db #Cass
 configure_nodb.pl /proj/fume/databases/SqueezeMeta/230903/db/ #Uppmax
-#configure_nodb.pl /cfs/klemming/projects/supr/fume/databases/SqueezeMeta/230903/db #Dardel
+#configure_nodb.pl /cfs/klemming/projects/supr/fume/databases/SqueezeMeta/230903/db #Dardel'
+#configure_nodb.pl /scratch/slu_dasa_1/slu_dasa_1_2/dbs/SQM #SCAYLE
 
+
+
+#these steps are now unnecessary
 
 echo "=====Configuring Checkm2 database====="
 export CHECKM2DB="/data/jay/databases/CheckM2_database/CheckM2_database" #Cass
@@ -15,11 +19,6 @@ export CHECKM2DB="/cfs/klemming/projects/supr/fume/databases/checkm2/CheckM2_dat
 export CHECKM2DB="/crex/proj/fume/nobackup/private/jay/dbs/CheckM2_database" #Uppmax
 
 
-
-
-
-
-#these steps are now unnecessary
 echo "=====Installing nextflow====="
 mamba install -c bioconda nextflow 
 mamba update nextflow
