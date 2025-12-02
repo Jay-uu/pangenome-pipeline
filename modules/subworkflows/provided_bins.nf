@@ -23,10 +23,9 @@ workflow provided_bins {
     
     //if taxonomy and completeness already provided, don't need to run this. Might add something for it in the future.
     classify_bins(sam_ch.to_classify, bins_dir, fastq_ch.to_classify.first(), proj_name)
-
-    //classify_bins.out.bintable.multiMap { ch -> to_emit: to_summarize: ch }.set { ch_bintables }
     checkbins(classify_bins.out.sqm_dir, proj_name)
     checkbins.out.bintable.multiMap { ch -> to_emit: to_summarize: ch }.set { ch_bintables }
+
     summarize_bintables(ch_bintables.to_summarize, proj_name)
 
     emit:

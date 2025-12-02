@@ -11,7 +11,6 @@ process dastool {
         script:
         """
         echo "Running dastool with {$task.cpus} nr of cpus"
-        #sed -i 's#\\(\$numthreads *= *\\).*;#\\1'"$task.cpus;"'#' $sqm_dir/SqueezeMeta_conf.pl
         15.dastool.pl $sqm_dir $task.cpus
         """
 
