@@ -6,7 +6,6 @@ Output is the new directories which contains bins and a tsv with completeness an
 */
 process parse_taxonomies {
     label "low_cpu"
-    label "parse_taxonomies"
     tag "All_bins"
     input:
     path(bins)

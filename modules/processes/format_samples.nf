@@ -5,7 +5,6 @@ Output is a list of all the individual samples files.
 */
 process format_samples {
     label "low_cpu"
-    label "format_samples"
     tag "All_samples"
     input:
     path(samples_file)
