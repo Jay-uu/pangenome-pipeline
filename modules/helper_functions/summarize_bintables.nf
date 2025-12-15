@@ -1,6 +1,6 @@
 #!/usr/bin/env nextflow
 def summarize_bintables(bintable_ch, proj_name) {
-    def bintable_header = Channel.value("Bin ID	Completeness	Contamination	Tax GTDB-Tk")
+    def bintable_header = channel.value("Bin ID	Completeness	Contamination	Tax GTDB-Tk")
     def bintable_rows = bintable_ch
         .collectFile(keepHeader: true, skip: 2)
         .splitCsv(header: true, skip: 1, sep: "\t")
