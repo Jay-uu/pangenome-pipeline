@@ -72,8 +72,8 @@ workflow {
     println("Starting. Your results will be published at ${params.project}.")
 
     //Subsampling
-    sam_ch = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
-    fastq_ch = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+    sam_ch = channel.fromPath(params.samples, type: "file", checkIfExists: true)
+    fastq_ch = channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
     subsample_reads(sam_ch, fastq_ch, params.project, params.subsample, params.nr_subsamp, params.readcount)
     readcounts = subsample_reads.out.readcounts 
     sub_reads = subsample_reads.out.sub_reads
@@ -84,7 +84,7 @@ workflow {
     the map_and_detect_variants workflow. This is the third entrypoint.
     */
     if (params.ref_genome != null) {
-        Channel.fromPath("${params.ref_genome}", type: "file", checkIfExists: true).multiMap { ch -> core: NBPs: ch }.set { ref_gen }
+        channel.fromPath("${params.ref_genome}", type: "file", checkIfExists: true).multiMap { ch -> core: NBPs: ch }.set { ref_gen }
         println("Entrypoint 3: Reference genome.")
         /*
         When using a reference genome we don't have core and consensus,
@@ -96,7 +96,7 @@ workflow {
         NBPs_ch = ref_gen.NBPs
 
         if (params.contigs != null) {
-            contigs_ch = Channel.fromPath("${params.contigs}", type: "file", checkIfExists: true)
+            contigs_ch = channel.fromPath("${params.contigs}", type: "file", checkIfExists: true)
         }
         else {
             contigs_ch = null
@@ -139,13 +139,13 @@ workflow {
             match_samps_to_pang(params.samples, core_ch, sub_reads, readcounts, params.project, params.min_cov, params.nr_samps_threshold, params.nr_subsamp)
             pang_samples = match_samps_to_pang.out.pang_samples
         } else if (params.ref_genome != null) {
-            pang_samples = Channel.fromPath(params.samples, type: "file", checkIfExists: true)
+            pang_samples = channel.fromPath(params.samples, type: "file", checkIfExists: true)
         } else {
             throw new Exception("No subsampling, no readcount file AND no reference genome? This should never happen.")
         }
 
         if (params.run_VC) {
-            fastq_dir = Channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
+            fastq_dir = channel.fromPath(params.fastq, type: "dir", checkIfExists: true)
             variant_calling(fastq_dir, params.subsample, NBPs_ch, pang_samples, contigs_ch, params.ref_genome,
              params.project, params.min_locus_cov, params.min_cov, params.min_breadth, params.min_contig_len, params.block_size )
         }
