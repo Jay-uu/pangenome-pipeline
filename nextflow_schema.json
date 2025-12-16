@@ -36,6 +36,11 @@
           "help_text": "A tsv with contig names and length, named <ref_genome.contigs.tsv> specifying the contigs you're interested in SNP analysis for.",
           "description": "A TSV with contig names that you want to use for variant calling. If not provided will use whole reference fasta genome when starting from ref_genome. Otherwise ignored."
         },
+        "bintables": {
+          "type": "string",
+          "description": "A directory with at least one .bintable file in it. For the bin entry point only. For bins with taxonomic classification and quality scores (checkM2) the pipeline won't re-run those steps.",
+          "help_text": "A directory with .bintables files that can be provided for the pre-existing bins entrypoint. These should follow the formatting of the bintables output by the pipeline. In other words, a tab-delimited file with the columns: Bin ID  Completeness    Contamination   Tax GTDB-Tk."
+        },
         "run_VC": {
           "type": "boolean",
           "default": true,

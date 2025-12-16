@@ -1,11 +1,10 @@
 /*
-Takes a directory with bins and runs them through SqueezeMeta, resulting in taxonomic classification of the bins etc..
-Output is the dir with all SqueezeMeta results, the bins, and the combined checkM and GTDB-Tk results.
+This process takes a directory with bins in fasta format, and formats everything to a SqueezeMeta directory.
+Might rename contigs, but keeps bin-names.
 */
 process classify_bins {
     publishDir "${project_path}/bins/bintables", mode: "copy", pattern: "${sample.baseName}/results/18.*.bintable", saveAs: { file("${project_path}").baseName + ".bintable" }
     publishDir "${project_path}/bins/fastas", mode: "copy", pattern: "${sample.baseName}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }
-    label "classify_bins"
     tag "${sample.baseName}"
     input:
     path(sample)
@@ -13,9 +12,9 @@ process classify_bins {
     path(fastq_dir)
     val(project_path)
     output:
-    path("${sample.baseName}/results/bins/*.fa", emit: bins)
+    path("${sample.baseName}/results/bins", emit: bins_dir)
     tuple(val("${sample.baseName}"),path("${sample.baseName}"), emit: sqm_dir)
-    //path("${sample.baseName}/results/18.*.bintable", emit: bintable)
+    path("${sample.baseName}/results/bins/*.fa", emit: bins)
     script:
     """
     #!/usr/bin/env bash

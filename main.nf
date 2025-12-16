@@ -106,7 +106,7 @@ workflow {
             println("Entrypoint 2: Provided bins.")
             //If bins were provided we don't need to do assembly
             //Optional inputs can be null
-            provided_bins(params.samples, params.bins, params.fastq, params.project)
+            provided_bins(params.samples, params.bins, params.fastq, params.project, params.bintables)
             bins_ch = provided_bins.out.bins
             bintable_ch = provided_bins.out.bintable
         } else {

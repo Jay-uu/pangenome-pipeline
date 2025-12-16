@@ -1,3 +1,6 @@
+/*
+Uses SqueezeMeta to assign taxonomic identification, completeness scores and contamination scores to bins.
+*/
 process checkbins {
         //publishDir "${project_path}/bins/fastas", mode: "copy", pattern: "${samp_name}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }
         publishDir "${project_path}/bins/bintables", mode: "copy", pattern: "${samp_name}/results/18.*.bintable", saveAs: { "${samp_name}.bintable" }
