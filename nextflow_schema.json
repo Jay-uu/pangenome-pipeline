@@ -140,9 +140,9 @@
         },
         "taxSort": {
           "type": "string",
-          "default": "root",
-          "description": "Decides wich way to sort bins before clustering. Can lead to parallell clustering computation.",
-          "help_text": "Options:\nroot: sends all bins to the clustering tool together.\nauto: finds the lowest taxonomic rank where at least 90% of bins have been given a classification.\nPossible taxonomic ranks: domain, phylum, class, order, family, genus and species."
+          "default": "auto",
+          "description": "Decides wich way to sort bins before clustering. By default splits clustering into several jobs based on initial taxonomix classification, which might mean that some unclassified bins are dropped at this stage. For options see --help taxSort.",
+          "help_text": "Options:\nroot: sends all bins to the clustering tool together.\nauto: finds the lowest taxonomic rank where at least 90% of bins have been given a classification.\nPossible taxonomic ranks: domain, phylum, class, order, family, genus and species.\nDefault behaviour, auto, divides the clustering into several jobs which makes computation easier, but you might lose out on some unclassified bins for your pangenome. If you believe you have enough computational resources root will lead to one job of clustering that scales quadratically depending on the number of bins. This method is more likely to find which species/pangenome an unclassified bin belongs to."
         }
       }
     },
