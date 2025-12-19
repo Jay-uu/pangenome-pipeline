@@ -1,5 +1,4 @@
 process binning {
-        label "binning"
         tag "${samp_name}"
         input:
         tuple(val(samp_name), path(sqm_dir))

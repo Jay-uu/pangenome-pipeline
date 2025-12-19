@@ -1,6 +1,7 @@
 /*
 Takes raw reads and runs them through SqueezeMeta, resulting in bins.
 Output is the dir with all SqueezeMeta results, the bins, and the combined checkM and GTDB-Tk results.
+This process is no longer used.
 */
 process fastq_to_bins {
     publishDir "${project_path}/bins/fastas", mode: "copy", pattern: "${sample.baseName}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }

@@ -1,13 +1,10 @@
 process dastool {
-        publishDir "${project_path}/bins/fastas", mode: "copy", pattern: "${samp_name}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }
-        label "dastool"
         tag "${samp_name}"
         input:
         tuple(val(samp_name), path(sqm_dir))
-        val(project_path)
         output:
+        path("${samp_name}/results/bins/*.fa", emit: bins)
         tuple(val("${samp_name}"),path("${sqm_dir}"), emit: sqm_dir)
-        path("${sqm_dir}/results/bins/*.fa", emit: bins)
         script:
         """
         echo "Running dastool with {$task.cpus} nr of cpus"

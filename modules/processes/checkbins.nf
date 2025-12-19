@@ -2,7 +2,7 @@
 Uses SqueezeMeta to assign taxonomic identification, completeness scores and contamination scores to bins.
 */
 process checkbins {
-        //publishDir "${project_path}/bins/fastas", mode: "copy", pattern: "${samp_name}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }
+        publishDir "${project_path}/bins/fastas", mode: "copy", pattern: "${samp_name}/results/bins/*.fa", saveAs: { filename -> filename.split("/")[-1] }
         publishDir "${project_path}/bins/bintables", mode: "copy", pattern: "${samp_name}/results/18.*.bintable", saveAs: { "${samp_name}.bintable" }
         label "checkbins"
         label "high_mem"
@@ -11,7 +11,7 @@ process checkbins {
         tuple(val(samp_name), path(sqm_dir))
         val(project_path)
         output:
-        //path("${sqm_dir}/results/bins/*.fa", emit: bins)
+        path("${sqm_dir}/results/bins/*.fa", emit: bins)
         path("${sqm_dir}/results/18.*.bintable", emit: bintable)
         script:
         """
