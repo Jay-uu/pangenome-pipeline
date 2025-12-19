@@ -100,8 +100,10 @@ process parse_taxonomies {
             g.to_csv(f"{group}_bins/{group}.bintable", index=None,
                      sep='\t', columns = ["Bin Id","Completeness","Contamination"])
             for bin_id in g['Bin Id']:
-                print(f"Symlinking {bin_id} fasta to bins dir for {group}.")
-                shutil.copy2(bin_id+".fa", group+"_bins")
+                #double check that bin exists
+                if os.path.isfile(bin_id+".fa"):
+                    print(f"Symlinking {bin_id} fasta to bins dir for {group}.")
+                    shutil.copy2(bin_id+".fa", group+"_bins")
     """
     
 }
