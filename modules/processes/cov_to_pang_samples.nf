@@ -18,7 +18,6 @@ Output:
 */
 process cov_to_pang_samples {
     label "low_cpu"
-    label "cov_to_pang_samples"
     tag "All_mOTUs"
     publishDir "${project_path}/mOTUs", mode: "copy", pattern: "*.*.tsv", failOnError: false
     publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", failOnError: false, saveAs: { covcpm -> "${file(covcpm).getSimpleName()}/pangenome/${file(covcpm).getBaseName()}"}
@@ -52,6 +51,7 @@ process cov_to_pang_samples {
     NR_SUBSAMP = ${nr_subsamp}
     PROJECT = os.path.basename("${project_path}".rstrip("/"))
     
+    print("=====Process name: cov_to_pang_samples=====")
     print(f"Project is ${project_path}")
     
     #Input: 
@@ -68,17 +68,25 @@ process cov_to_pang_samples {
         exp_cov = CovPM*tot_reads/1000000
         return CovPM, exp_cov
     
+    print("=====Accessing the nr of reads in original fastq files=====")
     #Make a dataframe of the nr of reads in the original fastq files
     count_files = glob.glob("*_readcounts.tsv")
+    progress_read = 0
+    tot_read = len(count_files)
     readcount = pd.DataFrame()
     for file in count_files:
         print(f"Appending {file}")
         readcount = pd.concat((readcount, pd.read_csv(file, sep='\t')), ignore_index=True)
+        progress_read = progress_read + 1
+        print(f"Read {progress_read}/{tot_read} files.") 
 
     #Taking the output of samtools coverage, calculating the coverage/million reads and expected mean coverage based on nr original reads.
+    print("=====Reading coverage results and calculating expected mean coverage for original read numbers.=====")
     cpm_dic = {}
     cov_dic = {}
     cov_files = glob.glob("*_coverage.tsv")
+    progress_read = 0
+    tot_read = len(cov_files)
     for file in cov_files:
         print(f"Reading {file}")
         pang_id = file.split("_sub_",1)[0]
@@ -95,9 +103,11 @@ process cov_to_pang_samples {
         print(f"Samp: {samp_name}, Median coverage: {exp_cov}, CPM: {cpm}")
         cpm_dic.setdefault(pang_id, {})[samp_name] = cpm
         cov_dic.setdefault(pang_id, {})[samp_name] = exp_cov
+        progress_read = progress_read + 1
+        print(f"Read {progress_read}/{tot_read} files.") 
 
     #convert dicts to dfs and save to file. Maybe redo this to be in a loop?
-    print("Saving coverage and CPM to files.")
+    print("=====Saving coverage and CPM to files.=====")
     all_cov = pd.DataFrame.from_dict(cov_dic, orient="index")
     all_cov = all_cov.reset_index().rename(columns={"index": "Pangenome"})
     all_cov.to_csv(f"{PROJECT}.cov.tsv", sep = '\t', index=False)
@@ -106,7 +116,7 @@ process cov_to_pang_samples {
     all_cpm = all_cpm.reset_index().rename(columns={"index": "Pangenome"})
     all_cpm.to_csv(f"{PROJECT}.cpm.tsv", sep = '\t', index=False)
 
-    print("Making individual cov and cpm files.")
+    print("=====Making individual cov and cpm files per mOTU.=====")
     os.makedirs("pangenome")
     for pang in all_cov["Pangenome"].unique():
         motu = pang.split(".", 1)[0]
@@ -115,7 +125,7 @@ process cov_to_pang_samples {
 
     os.makedirs("samples")
     #create new .samples files for pangenomes that fit the coverage criteria
-    print("Creating samples files for pangenomes that pass the thresholds.")
+    print("=====Creating samples files for pangenomes that pass the thresholds.=====")
     samples_df = pd.read_csv(SAMPS_FILE, sep='\t', names=["sample","read", "pair"])
     for pang_id in cov_dic.keys():
         ovr_thresh = []
@@ -131,6 +141,7 @@ process cov_to_pang_samples {
     #Additional calculations from mapping. Get % of subsampled reads that mapped.
     #go through all _stats.txt files, collect total reads and mapped reads for
     #each pangenome + sample combo
+    print("=====Calculating and compiling mapping results for subsamples reads.=====")
     # and calc %mapped
     mapped_reads = glob.glob("*_stats.txt")
     read_prcnt_dic = {}
@@ -146,6 +157,7 @@ process cov_to_pang_samples {
         read_prcnt_dic.setdefault(pang_id, {})[samp_name] = prcnt_mapped
 
     #Save results in one file.
+    print("=====Saving results for all samples in one file.=====")
     all_read_prcnt = pd.DataFrame.from_dict(read_prcnt_dic, orient="index")
     all_read_prcnt = all_read_prcnt.reset_index().rename(columns={"index": "Pangenome"})
     all_read_prcnt.to_csv(f"{PROJECT}.prcnt_reads_mapped.tsv", sep = '\t', index=False)
@@ -154,6 +166,8 @@ process cov_to_pang_samples {
     if len(glob.glob(f"samples/*.samples")) < 1:
         with open("NONE_PASSED.txt", "w") as outfile:
             outfile.write("WARNING: It seems none of your pangenomes fulfill the thresholds for further analysis.\\n")
-            outfile.write("Consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or using more samples.")   
+            outfile.write("Consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or using more samples.") 
+
+    print("=====Finished.=====")  
     """
 }
