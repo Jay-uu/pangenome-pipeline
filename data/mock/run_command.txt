@@ -1,0 +1,1 @@
+nextflow run ../../main.nf -c local.config -params-file params.yaml -resume

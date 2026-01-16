@@ -1,0 +1,19 @@
+project: 'mock_test'
+samples: 'mock.samples'
+fastq: 'raw'
+threads: 12
+taxSort: 'auto'
+nr_samps_threshold: 2
+min_cov: 10
+min_breadth: 10
+#bin entry settings
+#project: 'mock_bin_entry'
+#bins: 'mock_test/bins/fastas/'
+#bintables: 'mock_test/bins/bintables'
+#bintables: 'mock_test/bins'
+#readcounts
+#ref genome entry
+#project: 'mock_ref_genome'
+#samples: 'mock_test/mOTUs/results/s__Planktophila_vernalis_mOTU_0/pangenome/s__Planktophila_vernalis_mOTU_0.samples'
+#ref_genome: 'mock_test/mOTUs/results/s__Planktophila_vernalis_mOTU_0/pangenome/superpang/s__Planktophila_vernalis_mOTU_0.NBPs.fasta'
+#contigs: 'mock_test//mOTUs/results/s__Planktophila_vernalis_mOTU_0/pangenome/superpang/s__Planktophila_vernalis_mOTU_0.core.contigs.tsv'
