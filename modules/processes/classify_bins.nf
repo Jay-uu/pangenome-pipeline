@@ -19,7 +19,7 @@ process classify_bins {
     """
     #!/usr/bin/env bash
     echo "The sample file is ${sample.baseName}, the fastq dir is ${fastq_dir}, and the bins dir is ${in_bins}"
-    SAMPLE_ID="${sample.baseName}"
-    SqueezeMeta.pl -m extbins -f ${fastq_dir} -s ${sample} -p \$SAMPLE_ID -r ${in_bins} --gtdbtk -test 1 -t ${task.cpus} --nomarkers
+    SAMPLE_ID="${sample.baseName}" 
+    #SqueezeMeta.pl -m extbins  -f ${fastq_dir} -s ${sample} -p \$SAMPLE_ID -r ${in_bins} --gtdbtk -test 1 -t ${task.cpus} --nomarkers
     """
 }
