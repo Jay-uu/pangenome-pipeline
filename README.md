@@ -11,8 +11,8 @@ The pipeline is still in development, so changes may happen.
 For now to use the pipeline you need to clone this repository to a location on the machine you wish to run it on:
 ```git clone https://github.com/Jay-uu/pangenome-pipeline.git```.
 
-Then you need to install and set up the SqueezeMeta dev Conda environment, I recommend that you use Mamba for this. The current version the pipeline works with is SqueezeMeta-dev 1.7.2.
-```mamba create -n SqueezeMeta -c conda-forge -c bioconda -c anaconda -c fpusan squeezemeta-dev --no-channel-priority``` and then activate it using ```mamba activate SqueezeMeta```
+Then you need to install and set up the SqueezeMeta dev Conda environment, I recommend that you use Mamba for this. The current version the pipeline works with is SqueezeMeta-dev 1.7.3.alpha5
+```mamba create -n SqueezeMeta -c conda-forge -c bioconda -c fpusan --no-channel-priority --override-channels squeezemeta-dev=1.7.3.alpha5``` and then activate it using ```mamba activate SqueezeMeta```
 When this is done, you can continue setting up the environment following the instructions on [SqueezeMeta's GitHub](https://github.com/jtamames/SqueezeMeta?tab=readme-ov-file#3-downloading-or-building-databases) under title 3. Downloading or building databases.
 
 # Running the pipeline
