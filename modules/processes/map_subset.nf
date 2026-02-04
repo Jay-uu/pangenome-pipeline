@@ -9,11 +9,11 @@ process map_subset {
     label "low_cpu"
     label "map_subset"
     tag "${pang_id}"
+    tag "${sample_ID}"
     input:
     tuple(path(pangenome_dir),path(index), val(pang_id), val(sample_ID), path(sub_reads))
     output:
-    path("*_coverage.tsv", emit: coverage)
-    path("*_stats.txt", emit: stats)
+    tuple(val("${pang_id}"), path("*_coverage.tsv"), path("*_stats.txt"), emit: pang_cov_stats)
     script:
     """
     #run bowtie2
@@ -21,10 +21,10 @@ process map_subset {
     #check if there are sub*R2 reads, if yes:
     if stat --printf='' sub_*_R2.fq.gz 2>/dev/null; then
         echo "Running paired-end mode"
-        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz --threads ${task.cpus} | samtools view -bS --threads ${task.cpus} > tmp_alignment.bam
+        bowtie2 -x index -1 sub_*_R1.fq.gz -2 sub_*_R2.fq.gz --threads ${task.cpus} --ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05 | samtools view -bS --threads ${task.cpus} > tmp_alignment.bam
     else
         echo "Running unpaired reads mode"
-        bowtie2 -x index -U sub_*_R1.fq.gz --threads ${task.cpus} | samtools view -bS --threads ${task.cpus} > tmp_alignment.bam
+        bowtie2 -x index -U sub_*_R1.fq.gz --threads ${task.cpus} --ignore-quals --mp 1,1 --np 1 --rdg 0,1 --rfg 0,1 --score-min L,0,-0.05 | samtools view -bS --threads ${task.cpus} > tmp_alignment.bam
     fi
     
     echo "Sorting BAM files"

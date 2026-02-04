@@ -18,13 +18,13 @@ Output:
 */
 process cov_to_pang_samples {
     label "low_cpu"
-    tag "All_mOTUs"
+    tag "${pang_id}"
+    //edit publishdir to be simpler since only one pang_id now
     publishDir "${project_path}/mOTUs", mode: "copy", pattern: "*.*.tsv", failOnError: false
     publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", failOnError: false, saveAs: { covcpm -> "${file(covcpm).getSimpleName()}/pangenome/${file(covcpm).getBaseName()}"}
     publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "samples/*.samples",failOnError: false, saveAs: {samps -> "${file(samps).getSimpleName()}/pangenome/${file(samps).getSimpleName()}.samples"}
     input:
-    path(coverage)
-    path(stats)
+    tuple(val(pang_id), path(coverage), path(stats))
     path(samples_file)
     path(readcounts)
     val(project_path)
@@ -35,7 +35,8 @@ process cov_to_pang_samples {
     path("*.*.tsv", emit: pang_cpm_cov)
     path("samples/*.samples", optional: true, emit: pang_samples)
     path("pangenome/*.tsv"), emit: individual_pang_cov
-    path("NONE_PASSED.txt"), optional: true, emit: not_passed_message
+    path("NO_PASS.txt"), optional: true, emit: not_passed
+    path("PASSED.txt"), optional: true, emit: passed
     
     script:
     """
@@ -68,6 +69,7 @@ process cov_to_pang_samples {
         exp_cov = CovPM*tot_reads/1000000
         return CovPM, exp_cov
     
+    #This part should ideally be done outside this process to not be repeated.
     print("=====Accessing the nr of reads in original fastq files=====")
     #Make a dataframe of the nr of reads in the original fastq files
     count_files = glob.glob("*_readcounts.tsv")
@@ -163,11 +165,18 @@ process cov_to_pang_samples {
     all_read_prcnt.to_csv(f"{PROJECT}.prcnt_reads_mapped.tsv", sep = '\t', index=False)
 
     #This allows the process to finish and publish results, but still printing why the pipeline stops if no pangenomes pass the thresholds
-    if len(glob.glob(f"samples/*.samples")) < 1:
-        with open("NONE_PASSED.txt", "w") as outfile:
-            outfile.write("WARNING: It seems none of your pangenomes fulfill the thresholds for further analysis.\\n")
-            outfile.write("Consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or using more samples.") 
+    #if len(glob.glob(f"samples/*.samples")) < 1:
+    #    with open("NONE_PASSED.txt", "w") as outfile:
+    #        outfile.write("WARNING: It seems none of your pangenomes fulfill the thresholds for further analysis.\\n")
+    #        outfile.write("Consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or using more samples.") 
 
+    if len(glob.glob(f"samples/*.samples")) > 0:
+        with open("PASSED.txt", "w") as outfile:
+            outfile.write(f"${pang_id}\\n")
+    else:
+        with open("NO_PASS.txt", "w") as outfile:
+            outfile.write(f"${pang_id}\\n")
+    
     print("=====Finished.=====")  
     """
 }
