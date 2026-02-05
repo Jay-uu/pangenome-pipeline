@@ -137,7 +137,7 @@ workflow {
     if (!params.only_bins) {
         if ( ( params.subsample == true ) || params.readcount != null ) {
             match_samps_to_pang(params.samples, core_ch, sub_reads, readcounts, params.project, params.min_cov, params.nr_samps_threshold, params.nr_subsamp)
-            pang_samples = match_samps_to_pang.out.pang_samples
+            pang_samples = match_samps_to_pang.out.pang_samples    
         } else if (params.ref_genome != null) {
             pang_samples = channel.fromPath(params.samples, type: "file", checkIfExists: true)
         } else {
@@ -158,6 +158,9 @@ workflow {
     */
     def proj_path = params.project
     workflow.onComplete {
+        match_samps_to_pang.out.tot_nr_pangs.view{ nr -> "Out of $nr total pangenomes checked, " }
+        match_samps_to_pang.out.passed.view{ nr -> "$nr passed the thresholds for variant calling."}
+        println("If this is too few, consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or using more samples.")
         println("Your results can be found at ${proj_path}\nHave fun!")
     } 
 }
