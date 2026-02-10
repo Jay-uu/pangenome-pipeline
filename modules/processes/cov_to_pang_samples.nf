@@ -45,6 +45,7 @@ process cov_to_pang_samples {
     import pandas as pd
     import glob
     from string import digits
+    import warnings
     
     SAMPS_FILE = "${samples_file}"
     COV_THRESHOLD = ${min_cov}
@@ -154,6 +155,8 @@ process cov_to_pang_samples {
         with open(file) as statfile:
             bamstats = statfile.readlines()
             tot_seq = ''.join(c for c in bamstats[0] if c in digits) #row one has total reads
+            if int(tot_seq) == 0:
+                warnings.warn("Warning: The input sample file does not contain reads.")
             reads_mapped = ''.join(c for c in bamstats[1] if c in digits) #row 2 has nr reads mapped
             prcnt_mapped = (int(reads_mapped)/int(tot_seq))*100
         read_prcnt_dic.setdefault(pang_id, {})[samp_name] = prcnt_mapped
