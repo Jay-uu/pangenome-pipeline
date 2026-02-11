@@ -20,7 +20,7 @@ process cov_to_pang_samples {
     label "low_cpu"
     tag "${pang_id}"
     //edit publishdir to be simpler since only one pang_id now
-    publishDir "${project_path}/mOTUs", mode: "copy", pattern: "*.*.tsv", failOnError: false
+    //publishDir "${project_path}/mOTUs", mode: "copy", pattern: "*.*.tsv", failOnError: false
     publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", failOnError: false, saveAs: { covcpm -> "${file(covcpm).getSimpleName()}/pangenome/${file(covcpm).getBaseName()}"}
     publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "samples/*.samples",failOnError: false, saveAs: {samps -> "${file(samps).getSimpleName()}/pangenome/${file(samps).getSimpleName()}.samples"}
     input:
@@ -37,7 +37,6 @@ process cov_to_pang_samples {
     path("pangenome/*.tsv"), emit: individual_pang_cov
     path("NO_PASS.txt"), optional: true, emit: not_passed
     path("PASSED.txt"), optional: true, emit: passed
-    
     script:
     """
     #!/usr/bin/env python3

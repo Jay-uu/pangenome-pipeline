@@ -4,6 +4,7 @@
 include { index_coreref } from './../processes/index_coreref'
 include { map_subset } from './../processes/map_subset'
 include { cov_to_pang_samples } from './../processes/cov_to_pang_samples'
+include { concat_subsamp_cov } from './../processes/concat_subsamp_cov.nf'
 
 workflow match_samps_to_pang {
     take:
@@ -39,6 +40,8 @@ workflow match_samps_to_pang {
     tot_nr_pangs = passed.to_tot.mix(cov_to_pang_samples.out.not_passed).count()
     //flatten might not be neccessary anymore
     cov_to_pang_samples.out.pang_samples.flatten().map { psam -> [psam.getSimpleName(), psam] }.set { pang_samples }
+
+    concat_subsamp_cov(proj_name, cov_to_pang_samples.out.individual_pang_cov.collect())
 
     emit:
     pang_samples = pang_samples //channel: [val(ID), path(ID.samples)]
