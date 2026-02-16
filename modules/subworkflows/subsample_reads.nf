@@ -48,9 +48,6 @@ workflow subsample_reads {
         tuplify_samp_fastqs(samples_ch.to_sub_or_tup, fastq_ch.to_sub_or_tup.first())
         sub_reads = tuplify_samp_fastqs.out.reads //channel: [val("ID"), path("sub_ID.fq.gz")]
         readcounts = Channel.fromPath(readcount_file, type: "file", checkIfExists: true)        
-    } else {
-            //Should not be possible
-            throw new Exception("When skipping subsampling from provided bins entry it is assumed that you already have subsampled reads.\nThe pipeline should not end up here if that didn't happen.")
     }
 
     emit:
