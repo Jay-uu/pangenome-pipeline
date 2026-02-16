@@ -1,5 +1,6 @@
 /*
 This process takes the SqueezeMeta output and contig names to downsamples the bam files to get even coverage between samples, in preparation for Variant Calling.
+The reads have been mapped over the whole reference, but the threshold is only determined by good enough coverage/breadth over the core/contigs over a certain length.
 Input: the results directory from SqueezeMeta.
 Output: Since there is a possibility that no bams fit the minimum coverage and breadth criteria, this process might have no output or it will send
         a tuple with a fasta file of all contigs longer than 1000 bases from the input pangenome and a merged bam-file from all bams that passed the breadth
