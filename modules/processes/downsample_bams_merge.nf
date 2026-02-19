@@ -25,15 +25,17 @@ process downsample_bams_merge {
     script:
     """
     if [ ! -s ${contigs_tsv} ]; then
-        #create a contigs tsv will all contigs and bed
+        #create a contigs tsv with all contigs and bed
         #required fields: name, start, length
         bam=\$(ls ${pang_sqm}/data/bam/*.bam | head -n1)
-        echo "Using \${bam} to create contigs.bed, since no selected contigs were provided."
-        bedtools bamtobed -i \$bam > contigs.bed
+        echo "Using \${bam} to create contigs.bed with contigs over --min_contig_len, since no selected contigs were provided."
+        bedtools bamtobed -i \$bam | awk '\$2 >= '${min_contig_len}' { print \$0 }' > contigs.bed
+        awk '{ print \$1; }' contigs.bed > contig_names.tsv #make a tsv with long contigs' names
     else
         #create bed from contigs_tsv
         echo "Converting provided list of contigs to a bed file."
         awk ' { print \$1, 1, \$2} ' ${contigs_tsv} > contigs.bed
+        cp ${contigs_tsv} contig_names.tsv
     fi
         
     #Create tmp bams, filter for contigs over \${cont_len} bases put reads aligning to them in tmp_bams
@@ -105,8 +107,6 @@ process downsample_bams_merge {
         ls ${pang_sqm}_mergeable/*.bam > bamlist.txt
         samtools merge -o ${pang_sqm}_merged.bam -b bamlist.txt --threads ${task.cpus}
         samtools index ${pang_sqm}_merged.bam -@ ${task.cpus}
-        samtools idxstats ${pang_sqm}_merged.bam --threads ${task.cpus}| awk '\$2 >= '${min_contig_len}' { print \$0 }' > long_contigs.tsv
-        awk '{ print \$1 }' long_contigs.tsv > contig_names.tsv
         #seqtk doesn't allow multithreading
         seqtk subseq ${pang_sqm}/results/01.*.fasta contig_names.tsv > ${pang_sqm}_long_contigs.fasta
     fi
