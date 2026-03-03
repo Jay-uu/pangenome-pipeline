@@ -52,9 +52,12 @@ workflow {
     println("The subsample parameter is set to ${params.subsample}")
     if (!params.subsample) {
         if (params.ref_genome == null) {
-            if (params.bins != null && params.readcount == null) {
-                throw new Exception("When skipping subsampling from bins entry it is assumed that you already have subsampled reads.\nTherefore a tab delimited readcount file with Sample, Nr_fastqs, Total_reads needs to be provided with --readcount <path/to/file>")
-            } else {
+            if (params.bins != null) {
+                if (params.readcount == null) {
+                    throw new Exception("When skipping subsampling from bins entry it is assumed that you already have subsampled reads.\nTherefore a tab delimited readcount file with Sample, Nr_fastqs, Total_reads needs to be provided with --readcount <path/to/file>")
+                } 
+            }    
+            else {
                 throw new Exception("You cannot skip subsampling when running assembly and binning. For options run nextflow main.nf --help.")
             }
         }
