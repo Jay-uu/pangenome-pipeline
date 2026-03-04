@@ -61,7 +61,6 @@ workflow {
                 throw new Exception("You cannot skip subsampling when running assembly and binning. For options run nextflow main.nf --help.")
             }
         }
-        println("Entrypoint 3: Reference genome and no subsampling. All reads will be mapped to the reference.")
     }
 
     if (params.bins != null && params.ref_genome != null) {
