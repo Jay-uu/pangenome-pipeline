@@ -3,7 +3,7 @@ Takes raw reads and runs them through SqueezeMeta, resulting in per-sample assem
 */
 process assemble_metagenome {
     //should sample sqm.zip be output also? 
-    label "assemble_metagenome"
+    label "high_mem"
     tag "${sample.baseName}"
     input:
     path(sample)
