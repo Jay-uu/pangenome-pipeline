@@ -99,7 +99,7 @@ process downsample_bams_merge {
     echo "Checking mergeable"
     if [ -z "\$(ls -A ${pang_sqm}_mergeable)" ]; then
          echo "No sample fit the alignment criteria. Skipping further analysis for ${pang_sqm}"
-         cat "WARNING: No sample fit the alignment criteria for ${pang_sqm}. If you want to analyze this sample further try lowering --min_cov and/or --min_breadth." > NOT_PASSED.txt
+         echo "WARNING: No sample fit the alignment criteria for ${pang_sqm}. If you want to analyze this sample further try lowering --min_cov and/or --min_breadth." > NOT_PASSED.txt
     else
         echo "Merging downsampled bams. and creating fasta of pangenome with only NBPs over ${min_contig_len} bases."
         ls ${pang_sqm}_mergeable/*.bam > bamlist.txt
