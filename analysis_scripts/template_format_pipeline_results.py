@@ -1,7 +1,11 @@
 # Needed input: path to project directory and where to store results.
+#Pipeline needs to have ran step3 so the file completed_pogs.txt exist
 PROJPATH=""
-POGS=PROJPATH + "/completed_pogs.txt"
-OUTDIR=PROJPATH + "/analysis" #remember to create this dir at some point before
+POGS=PROJPATH + "/completed_pogs.txt" #file where each line is the path from PROJPATH to a pangenome.samples file - aka only works for pangenomes that passed the coverage and nr_samples thresholds for VC.
+#example: mOTUs/results/<pang_name>/pangenome/<pang_name>.samples
+#for now it can be created like so in PROJPATH:
+# ls mOTUs/results/*/pangenome/*.samples > good_cov_mOTUs.txt
+OUTDIR=PROJPATH + "/analysis"
 ALL_POGS = True #choose wether to filter based on completeness and contam or not. True means no filtering.
 COMPLETENESS=90
 CONTAMINATION=0
@@ -64,7 +68,11 @@ for pog in pog_list:
     if (len(allLines[0].split(sep="\t"))-1 == len(samples)):
         for i in range(0,len(samples)):
             samp = samples[i].rstrip()
-            cpm = float(cpm_values[i].rstrip())
+            #ADD A CHECK THAT CPM IS A NUMBER HERE
+            if (cpm.replace('.','',1).isdigit()):
+                cpm = float(cpm_values[i].rstrip())
+            else:
+                cpm = 0
             #print(f"Sample is: {samp} and cpm is {cpm}")
             pog_dict[pog].update({samp:cpm})
     else:
@@ -109,7 +117,7 @@ for key in pog_dict.keys():
             tot_bcp = tot_bcp + samp_bcp
             #print(f"For genome {key} and sample {samp} the percentage of reads that mapped are: {samp_bcp}")
     #print(f"The total times samples were mapped: {tot_samps} to {key}")
-   #print(f"The total bcp for {key} is {tot_bcp}")
+    #print(f"The total bcp for {key} is {tot_bcp}")
     #print(f"Average bcp: {tot_bcp/tot_samps} percentage of bases were mapped to {key}")
     tot_avg_bcp_all_genomes = tot_bcp/tot_samps
     agg_bcp = agg_bcp + tot_bcp
@@ -138,15 +146,12 @@ sum_bintable = pd.read_csv(PROJPATH+"/bins/summarized_bins.bintable", sep="\t")
 #col of interest "Tax GTDB-Tk"
 tax = sum_bintable["Tax GTDB-Tk"].unique()
 for pog in pog_dict.keys():
-    if "Unclassified" in mOTU:
-        pog_dict[pog].update({"Tax GTDB-Tk":"Unclassified"})
-    else:
-        species = pog.split("_")[2]
-        lineage = next((s for s in tax if species in s), None)
-        #print("pog", pog)
-        #print("species:", species)
-        #print("lineage", lineage)
-        pog_dict[pog].update({"Tax GTDB-Tk":lineage})
+    species = pog.split("_")[2]
+    lineage = next((s for s in tax if species in s), None)
+    #print("pog", pog)
+    #print("species:", species)
+    #print("lineage", lineage)
+    pog_dict[pog].update({"Tax GTDB-Tk":lineage})
 
 
 print("Saving results in long format for further processing.")
