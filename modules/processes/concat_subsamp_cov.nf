@@ -1,6 +1,6 @@
 /*
 This progress takes a collection of the output coverages and CPMs from cov_to_pang_samples,
-and combines the results from each pangenome into one coverage file and one 
+and combines the results from each pangenome into one coverage file and one cpm file
 */
 process concat_subsamp_cov {
     label "low_cpu"

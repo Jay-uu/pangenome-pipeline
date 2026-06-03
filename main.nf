@@ -160,8 +160,8 @@ workflow {
     */
     def proj_path = params.project
     workflow.onComplete {
-        match_samps_to_pang.out.tot_nr_pangs.view{ nr -> "Out of $nr total pangenomes checked, " }
-        match_samps_to_pang.out.passed.view{ nr -> "$nr passed the thresholds for variant calling."}
+        match_samps_to_pang.out.tot_nr_pangs.view{ nr -> "$nr total pangenomes checked." }
+        match_samps_to_pang.out.passed.view{ nr -> "$nr pangenomes passed the thresholds for variant calling."}
         println("If this is too few, consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or using more samples.")
         println("Your results can be found at ${proj_path}\nHave fun!")
     } 

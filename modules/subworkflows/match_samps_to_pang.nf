@@ -5,6 +5,7 @@ include { index_coreref } from './../processes/index_coreref'
 include { map_subset } from './../processes/map_subset'
 include { cov_to_pang_samples } from './../processes/cov_to_pang_samples'
 include { concat_subsamp_cov } from './../processes/concat_subsamp_cov.nf'
+include { sum_soi } from './../processes/sum_soi.nf'
 
 workflow match_samps_to_pang {
     take:
@@ -36,12 +37,14 @@ workflow match_samps_to_pang {
     //cov_to_pang_samples.out.not_passed_message.map { msg -> msg.text.strip() }.view()
     // how to manage if null?
     //not_passed = cov_to_pang_samples.out.not_passed.count() //.collectFile(name: 'NOT_PASSED.txt', newLine: false)
-    cov_to_pang_samples.out.passed.multiMap{ nr -> to_tot: to_emit: nr }.set{ passed } //.collectFile(name: 'PASSED.txt', newLine: false)
+    cov_to_pang_samples.out.passed.multiMap{ nr -> to_tot: to_emit: to_publish: nr }.set{ passed } //.collectFile(name: 'PASSED.txt', newLine: false)
     tot_nr_pangs = passed.to_tot.mix(cov_to_pang_samples.out.not_passed).count()
     //flatten might not be neccessary anymore
     cov_to_pang_samples.out.pang_samples.flatten().map { psam -> [psam.getSimpleName(), psam] }.set { pang_samples }
 
     concat_subsamp_cov(proj_name, cov_to_pang_samples.out.individual_pang_cov.collect())
+
+    sum_soi(proj_name, passed.to_publish.collect(), minimum_coverage, nr_samps_threshold)
 
     emit:
     pang_samples = pang_samples //channel: [val(ID), path(ID.samples)]

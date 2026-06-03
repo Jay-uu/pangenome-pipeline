@@ -19,8 +19,6 @@ Output:
 process cov_to_pang_samples {
     label "low_cpu"
     tag "${pang_id}"
-    //edit publishdir to be simpler since only one pang_id now
-    //publishDir "${project_path}/mOTUs", mode: "copy", pattern: "*.*.tsv", failOnError: false
     publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "pangenome/*.tsv", failOnError: false, saveAs: { covcpm -> "${file(covcpm).getSimpleName()}/pangenome/${file(covcpm).getBaseName()}"}
     publishDir "${project_path}/mOTUs/results", mode: "copy", pattern: "samples/*.samples",failOnError: false, saveAs: {samps -> "${file(samps).getSimpleName()}/pangenome/${file(samps).getSimpleName()}.samples"}
     input:
@@ -35,8 +33,8 @@ process cov_to_pang_samples {
     path("*.*.tsv", emit: pang_cpm_cov)
     path("samples/*.samples", optional: true, emit: pang_samples)
     path("pangenome/*.tsv"), emit: individual_pang_cov
-    path("NO_PASS.txt"), optional: true, emit: not_passed
-    path("PASSED.txt"), optional: true, emit: passed
+    path("*_NO_PASS.txt"), optional: true, emit: not_passed
+    path("*_PASSED.txt"), optional: true, emit: passed
     script:
     """
     #!/usr/bin/env python3
@@ -173,10 +171,10 @@ process cov_to_pang_samples {
     #        outfile.write("Consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or using more samples.") 
 
     if len(glob.glob(f"samples/*.samples")) > 0:
-        with open("PASSED.txt", "w") as outfile:
+        with open("${pang_id}_PASSED.txt", "w") as outfile:
             outfile.write(f"${pang_id}\\n")
     else:
-        with open("NO_PASS.txt", "w") as outfile:
+        with open("${pang_id}_NO_PASS.txt", "w") as outfile:
             outfile.write(f"${pang_id}\\n")
     
     print("=====Finished.=====")  
