@@ -44,25 +44,26 @@ or if you're in the pipeline dir:
 ## Alternative entrypoints and exitpoints:
 
 You might not always want to run the whole pipeline depending on your purposes. There are several options to control which parts of the pipeline you run.
- - Stopping the pipeline after assembly and binning:
+### Stopping the pipeline after assembly and binning:
   If you only want to run assembly from raw reads to bins.
 
 ```nextflow run <path/to/pipeline/main.nf> --project <path/project_name> --samples <tsv.samples> --fastq <path/to/dir> --threads <nr> --only_bins true```
 
- - Existing bins entrypoint:
+### Existing bins entrypoint:
    If you already have bins that you want to assemble into pangenomes you need to provide a directory with the fasta files for those bins.
    This can be done with or without subsampling. If you provide already subsampled reads you also need to provide a file with the number of reads in your original fastq files using the ```--readcount``` flag. If you don't provide this the pipeline will assume that you provided the full fastq files and run subsampling.
+   If you're continuing the run from step 1 or already have the quality and taxonomy of the bins you can provide that with the ```--bintables``` flag. This takes the path to a directory with at least one .bintable file. The pipeline will check which input bins have information in the .bintable files, and only run checkM and GTDB-Tk for the bins that lack quality and taxonomy information. The format of the bintable is a tab delimited file with columns: "Bin ID  Completeness    Contamination   Tax GTDB-Tk".
 
-   ```nextflow run <path/to/pipeline/main.nf> --project <path/project_name> --samples <tsv.samples> --fastq <path/to/dir> --bins <path/to/dir/with/bins/fastas> --readcount <path/to/readcount.txt>```
+   ```nextflow run <path/to/pipeline/main.nf> --project <path/project_name> --samples <tsv.samples> --fastq <path/to/dir> --bins <path/to/dir/with/bins/fastas> --readcount <path/to/readcount.txt> --bintables <path/to/dir/with/*.bintable>```
 
    For more info see the -extbins flag for [SqueezeMeta](https://github.com/jtamames/SqueezeMeta?tab=readme-ov-file#5-execution-restart-and-running-scripts)
 
- - Reference genome entrypoint:
+### Reference genome entrypoint:
    If you have a pangenome/reference genome that you want to do some diversity analysis with you provide a fasta file.
 
    ```nextflow run <path/to/pipeline/main.nf> --project <path/project_name> --samples <tsv.samples> --fastq <path/to/dir> --ref_genome <path/to/file>``` it is also recommended that you provide a file with the contigs of interest using ```--contigs <file>```. The contigs file has the name of a contig on each line, make sure it matches the names in the provided fasta file.
 
- - Skipping variant calling:
+### Skipping variant calling:
    This can be used for the regular run command, or with the existing bins entrypoint.
 
    ```nextflow run <path/to/pipeline/main.nf> --project <path/project_name> --samples <tsv.samples> --fastq <path/to/dir> --run_VC false```
@@ -70,10 +71,10 @@ You might not always want to run the whole pipeline depending on your purposes. 
 ## Subsampling
 By default the pipeline uses subsampling of the raw reads to map them to the pangenomes/reference genomes to get an estimate of expected coverage for a sample to a genome. This saves on computation time by not needing to map all reads to all genomes to determine which samples can contribute to the species diversity. Unless you have very few samples this is the recommended way to run the pipeline.
 
-- Skipping subsampling:
+### Skipping subsampling:
 If you despite this want to skip subsampling you can add ```--subsample false``` to the run command. This option is not allowed when starting from Entrypoint 1, using just raw reads, but works for Entrypoint 2 and 3.
 
-- Skipping subsampling with pre-existing bins:
+### Skipping subsampling with pre-existing bins:
 If you've previously run the pipeline and stopped after the binning step you can start from the existing bins entrypoint and skip subsampling. This presumes that you already have subsampled reads and therefore you need to provide a file with the total number of original reads in each sample using ```--readcount```. The pipeline provides you with the files to make this easy.
 
 ```nextflow run <path/to/pipeline/main.nf> --project <path/new_project_name> --samples <path/old_project_name/subsamples/old_project_name.subsampled.samples> --fastq <path/old_project_name/subsamples/fastqs> --subsample false --readcount <path/old_project_name/subsamples/original_readcounts.tsv --run_VC false```
@@ -110,11 +111,11 @@ The command for using a config file is `-c <config-file> `. Nf-core has some for
 ```
 //General settings for the pipeline execution:
 executor.queueSize = 100
+workDir = "/path/to/scratch/project_name" //Recommended to use a scratch directory with a lot of storage
 
 process {
     //These settings will apply to all processes (except the ones with other configs using withLabel).
     executor = 'slurm'
-        scratch = true //each process execution uses the scratch dir so temporary files won't take up disk space. (CHECK THIS)
         clusterOptions = { '-A <project_name>' }
         cpus = params.threads
         queue = 'shared' //This is the partition directive
@@ -144,7 +145,7 @@ process {
    }
    ```
 
-The more general labels you can use to configure the pipeline are low_cpu (these processes use one cpu effectively), high_mem and the individual process names.
+The more general labels you can use to configure the pipeline are low_cpu (these processes use one cpu effectively), high_mem and/or the individual process names.
 If you want to know more about how Nextflow uses configurations you can [read the docs](https://www.nextflow.io/docs/latest/config.html).
 
 # Results structure
