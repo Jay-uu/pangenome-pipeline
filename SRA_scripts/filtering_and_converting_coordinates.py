@@ -5,15 +5,27 @@ Created on Thu Dec  9 13:58:49 2021
 
 @author: chelsea
 
-Modified by Jay. This script requires pandas v.1.9 to work.
+Modified by Jay. This script requires pandas v.1.9 (or older) to work.
+#conda install main::pandas==1.5.3
 """
 
 import pandas as pd
 import numpy as np
+import glob
+
+OUTPUT_PATH="/data/jay/datasets/SRA_freshwater/filtered_metadat"
 
 #Path to SRA_data and creating dataframe
-sra_data = '/data/jay/sra_res/sra_data.csv'
-df_sra_data = pd.read_csv(sra_data, sep=',', index_col=1, low_memory=False)
+#sra_data = '/data/jay/sra_res/sra_data.csv'
+#df_sra_data = pd.read_csv(sra_data, sep=',', index_col=1, low_memory=False)
+
+##combine multiple csvs
+#/data/jay/datasets/SRA_freshwater/sra_data_*.csv
+csvs_path = "/data/jay/datasets/SRA_freshwater/downloaded_metadat/"
+print(f"Reading input files from: {csvs_path}")
+df_sra_data = pd.DataFrame()
+for csv in glob.glob(csvs_path+"sra_data_*.csv"):
+    df_sra_data = pd.concat([df_sra_data, pd.read_csv(csv, sep=",", index_col=1, low_memory=False)])
 
 #List of things to be removed from sra_data
 if True:
@@ -23,6 +35,7 @@ else:
     to_filter_out = []
 
 #First filtering of unwanted information, such as non-metagenomes, non-bacteria, non-freshwater
+print(f"Removing samples containing key words: {to_filter_out}")
 for search_word in to_filter_out:
     df_sra_data = df_sra_data[~df_sra_data.stack().str.contains(search_word, case=False, regex = True).any(level=0)]
 
@@ -31,14 +44,17 @@ coordinate_columns = ['lat_lon', 'latitude', 'longitude', 'geographic location (
                       'geographic location (longitude)', 'latitude start', 'Latitude End', 
                       'Longitude End', 'Latitude Start', 'Longitude Start', 
                       'Latitude and longitude', 'latitude and longitude' ] #create list of coordinate columns
+print(f"Merging {len(coordinate_columns)} coordinate columns into one.")
 coordinate_columns = [col for col in coordinate_columns if col in df_sra_data.columns]
 df_sra_data[coordinate_columns] = df_sra_data[coordinate_columns].fillna('') #Fill NaN with empty string
 df_sra_data['coordinates'] = df_sra_data[coordinate_columns].apply(lambda row: ' '.join(row.values.astype(str)), axis=1) #Merge coordinate columns
 df_sra_data['coordinates'] = df_sra_data['coordinates'].str.strip() #remove space in the beginning of string
 
 #Filter coordinate column 
+print("Formatting to remove coordinates with symbols. Filtering to keep only samples with correctly formatted coordinates.")
 df_sra_data = df_sra_data[~df_sra_data.stack().str.contains('°').any(level=0)] #Remove rows with degree sign
 df_sra_data = df_sra_data[~df_sra_data.stack().str.contains('º').any(level=0)] #remove rows with ⁰
+df_sra_data = df_sra_data[~df_sra_data.stack().str.contains('¡ã').any(level=0)] #remove rows with ¡ã
 df_sra_data['coordinates'].replace('', np.nan, inplace = True) #replace empty strings with NaN
 df_sra_data = df_sra_data[df_sra_data['coordinates'].notna()] #keep only rows without Nan
 df_sra_data = df_sra_data[df_sra_data['coordinates'].str.contains('^[0-9]', regex = True)] #keep only coordinates starting with number
@@ -74,6 +90,7 @@ merge = pd.merge(accessions_freshwater, df_sra_data, how="inner", left_index=Tru
 id_coord = merge[['coordinates']].copy()
 
 # Convert coordinates
+print("Converting all coordinates to the same format.")
 lat = []
 long = []
 coordinates = []
@@ -82,24 +99,39 @@ for index, row in id_coord.iterrows():
     coordinates.append(str(row[0]).split(" "))
 
 # Go through each of the coordinates and check which cardinal direction (letters) which will 
-# determine if the value is positive or negative. 
-for list in coordinates:
-    if len(list) == 2:
-        lat_value = str(list[0])
+# determine if the value is positive or negative.
+to_check = []
+i = 0
+for coord_list in coordinates: #replace list with other name
+    if len(coord_list) == 6:
+        lat_value = str(coord_list[4])
         lat.append(lat_value)
-        long_value = str(list[1])
+        long_value = str(coord_list[5])
         long.append(long_value)
-    else:
-        if list[1] == 'S':
-            lat_value = '-' + str(list[0])
+    elif len(coord_list) == 2:
+        lat_value = str(coord_list[0])
+        lat.append(lat_value)
+        long_value = str(coord_list[1])
+        long.append(long_value)
+    elif len(coord_list) == 4:
+        if coord_list[1] == 'S':
+            lat_value = '-' + str(coord_list[0])
             lat.append(lat_value)
         else: 
-            lat.append(list[0])
-        if list[3] == 'W':
-            lon_value = '-' + str(list[2])
+            lat.append(coord_list[0])
+        if coord_list[3] == 'W':
+            lon_value = '-' + str(coord_list[2])
             long.append(lon_value)
         else: 
-            long.append(list[2])
+            long.append(coord_list[2])
+    else:
+        to_check.append(i)
+        lat.append('NaN')
+        long.append('NaN')
+    i = i +1
+
+if len(to_check) > 0:
+    print(f"WARNING: you have {len(to_check)} samples with unresolved coordinates. If you ignore this, they will be discarded.")
 
 # Add the converted values to the dataset
 id_coord['Latitude'] = lat 
@@ -109,7 +141,8 @@ id_coord['Longitude'] = long
 id_coord['Latitude'] = id_coord['Latitude'].str.replace(',','.')
 id_coord['Longitude'] = id_coord['Longitude'].str.replace(',', '.')
 
-#Remove coordinates column
+#Remove coordinates column and rows with NA
+id_coord.dropna(axis=0, how='any', subset=['Latitude','Longitude'], inplace=True)
 id_coord = id_coord.drop('coordinates', axis=1)
 
 #Add special cases filtering.
@@ -125,8 +158,15 @@ sowe_river = ['ERR10466844', 'ERR10466843', 'ERR10466842']
 for sv in sowe_river:
     id_coord.loc[sv]["Latitude"] = id_coord.loc[sv]["Latitude"].split("DD")[0]
     id_coord.loc[sv]["Longitude"] = id_coord.loc[sv]["Longitude"].split("DD")[0]
+
+#manual filtering from now on
+
+mystery_loc = ["DRR095146", "SRR6370751", "SRR10066355", "SRR3820960", "SRR8003412", "SRR24075716", "SRR26197971", "SRR6986811", "DRR095146", "ERR4702269",
+               "SRR24075715", "SRR6797150", "SRR24991626", "SRR20245410", "SRR20245412", "SRR15213102", "SRR6797136", "SRR19631146", "SRR17478312",
+              "SRR19503657", "SRR11267126", "SRR6797128", "SRR17405562", "DRR095147", "SRR3534995", "SRR3820958", "SRR8040758", "SRR24075714", "SRR2138582", "DRR095148"]
+
 """
-These have strange locations. Checking manually.
+These "mystery_loc" have strange locations when looking at them plotted to a map. Checking manually.
 [0] seems to have been a mixup with coordinates, change longitude to East (positive value)
 [1] marine
 [2] is fine.
@@ -147,7 +187,7 @@ Tijuana River kinda close. But same study also has seawater samples. Hard one. L
 [16] south china sea, but classified as freshwater. Removing. Supposedly drinking water.
 [17] classified as freshwater, but description is duck feces and environment, and location is the south china sea.  Removing.
 [18] ballast water. Removing.
-[19] says reservoir, but coords is in sea/ocean. It is in right are of world though... Removing. 
+[19] says reservoir, but coords is in sea/ocean. It is in right area of world though... Removing. 
 [20] from the flesh of a fish, removing by adding to to_filter "mottled skate"
 [21] study='Tap water samples Metagenome',  gps are nonsense... Removing.
 [22] the args study, removing
@@ -159,9 +199,6 @@ Tijuana River kinda close. But same study also has seawater samples. Hard one. L
 [28] salt water most likely
 [29] flipped coords
 """
-mystery_loc = ["DRR095146", "SRR6370751", "SRR10066355", "SRR3820960", "SRR8003412", "SRR24075716", "SRR26197971", "SRR6986811", "DRR095146", "ERR4702269",
-               "SRR24075715", "SRR6797150", "SRR24991626", "SRR20245410", "SRR20245412", "SRR15213102", "SRR6797136", "SRR19631146", "SRR17478312",
-              "SRR19503657", "SRR11267126", "SRR6797128", "SRR17405562", "DRR095147", "SRR3534995", "SRR3820958", "SRR8040758", "SRR24075714", "SRR2138582", "DRR095148"]
 
 #Microbial metagenome of suspended particulate matter in the Pearl River Estuary
 #"the freshwater extending as far as 55 km offshore" https://www.nature.com/articles/s41467-023-39507-0. Not sure where shore starts, but from
@@ -227,9 +264,9 @@ to_remove = ["coordinates", "Latitude and longitude", "longitude", "latitude", "
 final_cols = [x for x in all_info if x not in to_remove]
 filtered_coords = pd.merge(id_coord, final_candidates[final_cols], left_index=True, right_index=True)
 #save to file
-filtered_coords.to_csv('/home/jay/pangenome-pipeline/SRA_scripts/results/freshwater_filtered_coordinates.csv', encoding='utf-8')
+filtered_coords.to_csv(f'{OUTPUT_PATH}/freshwater_filtered_coordinates.csv', encoding='utf-8')
 #save accessions and latitudes and longitudes to csv
-id_coord.to_csv('/home/jay/pangenome-pipeline/SRA_scripts/results/accessions_coordinates.csv', encoding='utf-8')
+id_coord.to_csv(f'{OUTPUT_PATH}/accessions_coordinates.csv', encoding='utf-8')
 
 
 #metagenome_columns = ['LIBRARY_SOURCE','sample-type', 'metagenome-source', 'sample_type', 'Omics']

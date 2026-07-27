@@ -18,7 +18,6 @@ def parse_exp_summary(sra_id):
         md_dict['SRA_ID'] =ET.fromstring(sra_summary[0]['Runs']).attrib['acc']
     except :
         md_dict['SRA_ID'] =ET.fromstring("<Data>" + sra_summary[0]['Runs']+ "</Data>")[0].attrib['acc']
-
     dat = ET.fromstring("<Data>" + xxml + "</Data>")
     for child in dat:
         if child.tag == "Summary":
@@ -48,7 +47,6 @@ def parse_exp_summary(sra_id):
 
 def fetch_sample_data(sample_id):
     intern_id = Entrez.read(Entrez.esearch(db="Biosample", term = sample_id ))['IdList'][0]
-
     summary_dict = None
     while not summary_dict:
         try :
@@ -67,10 +65,21 @@ def fetch_sample_data(sample_id):
 
 # all the metagenome categories in NCBI
 # https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Undef&id=408169&lvl=3&keep=1&srchmode=1&unlock
+# https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?command=show&mode=tree&id=410657&lvl= <-metagenome taxonomy tree a.k.a. all the categories
 organism = 'water metagenome'
 username = 'fpusan@gmail.com'
-all_orgs = ["aquaculture metagenome", "aquatic metagenome", "bog metagenome", "cold spring metagenome", "estuary metagenome", "freshwater metagenome", "glacier lake metagenome", "lagoon metagenome", "lake water metagenome", "oasis metagenome", "pond metagenome", "riverine metagenome"]
+all_orgs = ["aquaculture metagenome", "aquatic metagenome", "bog metagenome", "cold spring metagenome", "estuary metagenome", "freshwater metagenome",
+             "glacier lake metagenome", "lagoon metagenome", "lake water metagenome", "oasis metagenome", "pond metagenome", "riverine metagenome",
+             "wetland metagenome", "wastewater metagenome", "tidal flat metagenome", "sulfur spring metagenome", "rice paddy metagenome",
+               "reservoir metagenome", "lake metagenome", "hot springs metagenome", "groundwater metagenome", "freshwater sediment metagenome",
+               "drinking water metagenome", "water metagenome"]
 
+orgs_1 = all_orgs[0:5]
+orgs_2 = all_orgs[5:11]
+orgs_3 = all_orgs[11:17]
+orgs_4 = all_orgs[17:23]
+orgs_5 = all_orgs[23:25]
+all_orgs = orgs_5
 
 Entrez.email = username
 
@@ -89,10 +98,11 @@ for id in tqdm(sra_ids):
         except:
             pass ##### ignore samples with encoding errors for now
 
-with open("output/sra_data.json", "w") as handle:
+with open("/data/jay/datasets/SRA_freshwater/sra_data_5.json", "w") as handle:
     json.dump(sras_metadat, handle, indent=4, sort_keys=True)
 
 for v in sras_metadat.values():
     v.update(v['sample_attributes'])
     del v['sample_attributes']
-pandas.DataFrame.from_dict(sras_metadat, orient = "index").to_csv("output/sra_data.csv")
+
+pandas.DataFrame.from_dict(sras_metadat, orient = "index").to_csv("/data/jay/datasets/SRA_freshwater/sra_data_5.csv")
