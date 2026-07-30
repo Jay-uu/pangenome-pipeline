@@ -27,6 +27,8 @@ df_sra_data = pd.DataFrame()
 for csv in glob.glob(csvs_path+"sra_data_*.csv"):
     df_sra_data = pd.concat([df_sra_data, pd.read_csv(csv, sep=",", index_col=1, low_memory=False)])
 
+df_sra_data.to_csv(f'{OUTPUT_PATH}/sra_data_combined.csv', sep=',', encoding='utf-8')
+
 #List of things to be removed from sra_data
 if True:
     to_filter_out = ['sediment','virus', 'viral', 'virome', 'transcript', 'marine', 'filtered water', 'aquarium', '^genomic', 'seawater','mine', 'mining',
@@ -145,19 +147,22 @@ id_coord['Longitude'] = id_coord['Longitude'].str.replace(',', '.')
 id_coord.dropna(axis=0, how='any', subset=['Latitude','Longitude'], inplace=True)
 id_coord = id_coord.drop('coordinates', axis=1)
 
+print("Handling special cases.")
 #Add special cases filtering.
 #The lake Most, Czechia coordinates have are formatted as xx.xxx.xxx which causes issues. Need to remove the second dot.
 lake_most = ['ERR3719164', 'ERR3719163', 'ERR3719162', 'ERR3719161', 'ERR3719160', 'ERR3719159', 'ERR3719158', 'ERR3719157', 'ERR3719156', 'ERR3719155',
         'ERR3719154', 'ERR3719153', 'ERR3719152', 'ERR3719151', 'ERR3719150', 'ERR3719149', 'ERR3719148', 'ERR3719147', 'ERR3719146', 'ERR3719145',
         'ERR3719144', 'ERR3719143', 'ERR3719142', 'ERR3719141', 'ERR3719140', 'ERR3719139', 'ERR3719138', 'ERR3719137', 'ERR9585962']
 for lm in lake_most:
-    id_coord.loc[lm]["Latitude"] = "".join(id_coord.loc[lm]["Latitude"].rsplit(".", 1))
-    id_coord.loc[lm]["Longitude"] = "".join(id_coord.loc[lm]["Longitude"].rsplit(".", 1))
+    if lm in id_coord.index:
+        id_coord.loc[lm]["Latitude"] = "".join(id_coord.loc[lm]["Latitude"].rsplit(".", 1))
+        id_coord.loc[lm]["Longitude"] = "".join(id_coord.loc[lm]["Longitude"].rsplit(".", 1))
 
 sowe_river = ['ERR10466844', 'ERR10466843', 'ERR10466842']
 for sv in sowe_river:
-    id_coord.loc[sv]["Latitude"] = id_coord.loc[sv]["Latitude"].split("DD")[0]
-    id_coord.loc[sv]["Longitude"] = id_coord.loc[sv]["Longitude"].split("DD")[0]
+    if sv in id_coord.index:
+        id_coord.loc[sv]["Latitude"] = id_coord.loc[sv]["Latitude"].split("DD")[0]
+        id_coord.loc[sv]["Longitude"] = id_coord.loc[sv]["Longitude"].split("DD")[0]
 
 #manual filtering from now on
 
@@ -244,18 +249,29 @@ id_coord.loc[merge.loc[merge["study"]==study_name].index]
 args = merge.loc[merge["study"]=='ARGs in river water'].index.to_list()
 bad_args = [args[0], args[9], args[10], args[11]]
 
+print("Dropping untrusted samples.")
 not_fresh = [mystery_loc[1], mystery_loc[3], mystery_loc[4], mystery_loc[5], mystery_loc[6], mystery_loc[7], mystery_loc[10], mystery_loc[11],
              mystery_loc[12], mystery_loc[16], mystery_loc[17], mystery_loc[18], mystery_loc[19], mystery_loc[21], mystery_loc[24], mystery_loc[25],
              mystery_loc[26], mystery_loc[27], mystery_loc[28]] + amazon_co + pearl_river_ovr55 + rongjiang_not_fresh + dongshan + oil + wmc + bad_args
-id_coord = id_coord.drop(index=not_fresh)
+
+to_remove = []
+for loc in to_remove:
+    if loc in id_coord.index:
+        to_remove.append[loc]
+
+
+id_coord = id_coord.drop(index=to_remove)
 
 #fix mystery_loc 0 and jiulong river, the coordinates were put as western longitude when it should be eastern longitude. Convert to positive.
+print("Fixing flipped coords.")
 jiulong_id = merge.loc[merge["study"]=="Jiulong River 201209-201306 Metagenome"].index
 rev_lon = [mystery_loc[0], mystery_loc[23], mystery_loc[29]] + jiulong_id.to_list() 
 for lon in rev_lon:
-    id_coord.loc[lon]["Longitude"] = id_coord.loc[lon]["Longitude"].split("-")[1]
+    if lon in id_coord.index:
+        id_coord.loc[lon]["Longitude"] = id_coord.loc[lon]["Longitude"].split("-")[1]
 
 #Removing columns with missing data for final samples with accepted coordinates
+print("Removing columns with missing data.")
 final_candidates = merge.loc[id_coord.index]
 missing_info = final_candidates.columns[final_candidates.isna().any()].tolist()
 all_info = final_candidates.columns[~final_candidates.isna().any()].tolist()
@@ -264,6 +280,7 @@ to_remove = ["coordinates", "Latitude and longitude", "longitude", "latitude", "
 final_cols = [x for x in all_info if x not in to_remove]
 filtered_coords = pd.merge(id_coord, final_candidates[final_cols], left_index=True, right_index=True)
 #save to file
+print("Saving filtered coordinates.")
 filtered_coords.to_csv(f'{OUTPUT_PATH}/freshwater_filtered_coordinates.csv', encoding='utf-8')
 #save accessions and latitudes and longitudes to csv
 id_coord.to_csv(f'{OUTPUT_PATH}/accessions_coordinates.csv', encoding='utf-8')
