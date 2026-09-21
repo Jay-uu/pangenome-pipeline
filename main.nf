@@ -159,10 +159,12 @@ workflow {
     https://github.com/nextflow-io/nextflow/issues/5261
     */
     def proj_path = params.project
-    workflow.onComplete {
+    /* This part needs to be tested when the newest sqm env is out. Then also test if newer nf versions will work.
+    onComplete = {
         match_samps_to_pang.out.tot_nr_pangs.view{ nr -> "$nr total pangenomes checked." }
         match_samps_to_pang.out.passed.view{ nr -> "$nr pangenomes passed the thresholds for variant calling."}
         println("If this is too few, consider lowering --min_cov and/or --nr_samps_threshold, increasing how many reads are subsampled or using more samples.")
         println("Your results can be found at ${proj_path}\nHave fun!")
     } 
+    */
 }
