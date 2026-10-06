@@ -1,6 +1,6 @@
 # pangenome-pipeline
-A Nextflow pipeline for Pangenome analysis using [SuperPang](https://github.com/fpusan/SuperPang) and [SqueezeMeta](https://github.com/jtamames/SqueezeMeta) and many other programs.
-It allows an automatic way to get data for intra-species diveristy analysis on a large amount of samples.
+A Nextflow pipeline for Pangenome analysis of prokaryotes using [SuperPang](https://github.com/fpusan/SuperPang) and [SqueezeMeta](https://github.com/jtamames/SqueezeMeta) and many other programs.
+It allows an automatic way to get data for intra-species diversity analysis on a large amount of samples.
 The pipeline has 3 parts which can be run separately or together.<br>
 Step 1: Assembles raw reads into bins using [SqueezeMeta](https://github.com/jtamames/SqueezeMeta) which means that the bins also will be evaluated for quality using Checkm2 and taxonomially classified using GTDB-Tk (and more! Look at the Squeezemeta link for more info about these results and what you can do with them!)<br>
 Step 2: Clusters and assembles bins into mOTUs which are then assembled into pangenomes. This allows you to investigate the core and accessory genomes of species.<br>
@@ -148,8 +148,16 @@ process {
 The more general labels you can use to configure the pipeline are low_cpu (these processes use one cpu effectively), high_mem and/or the individual process names.
 If you want to know more about how Nextflow uses configurations you can [read the docs](https://www.nextflow.io/docs/latest/config.html).
 
+## Specific parameters to consider
+The pipeline works quite well with default settings, but there are several parameters you might want to consider changing based on the purpose of your work. As mentioned previously you can get information about all the parameters with the --help option. Here are some parameters I think you should pay extra attention to since they very directly control what results you will get:<br>
+ - taxSort
+ - nr_samps_threshold
+ - min_cov
+ - min_breadth
+ - min_locus_cov
+
 # Results structure
-After running the pipeline you might wonder where your results are and what they mean. My best recommendation is to explore, but here's a tree showing the structure of the results output from a full run of the pipeline. Words within brackets [] are variable, depending on your input, sample names, taxonomic identification, tool etc. The .zip file in `<Project/results/[taxonomic_group_Y]_mOTU_[N]/pangenome/[taxonomic_group_Y]_mOTU_[N].zip>` can be explored using [SQMtools in R](https://github.com/jtamames/SqueezeMeta/wiki/Using-R-to-analyze-your-SQM-results).
+After running the pipeline you might wonder where your results are and what they mean. My best recommendation is to explore, but here's a tree showing the structure of the results output from a full run of the pipeline. Words within brackets [] are variable, depending on your input, sample names, taxonomic identification, tool etc. The .zip file in `<Project/results/[taxonomic_group_Y]_mOTU_[N]/pangenome/[taxonomic_group_Y]_mOTU_[N].zip>` can be explored using [SQMtools in R](https://github.com/jtamames/SqueezeMeta/wiki/Using-R-to-analyze-your-SQM-results). A guide on how to explore your results will be posted in the future.
 
 ```bash
 [Project]/
